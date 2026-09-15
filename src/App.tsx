@@ -363,9 +363,9 @@ function App() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setIsDashboardOpen(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-glass border border-border text-xs text-dim hover:text-white hover:border-primary transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/40 text-xs text-white hover:border-purple-400 hover:scale-105 transition-all cursor-pointer font-semibold shadow-lg"
                         >
-                            <History size={14} /> Memory Vault
+                            <History size={14} className="text-purple-300" /> Memory Dashboard
                         </button>
                     </div>
                 </header>
@@ -612,6 +612,23 @@ function App() {
                                         </label>
                                     </div>
                                 </div>
+
+                                {/* Memory Dashboard Button */}
+                                <button
+                                    onClick={() => setIsDashboardOpen(true)}
+                                    className="card card-enhanced gradient-border hover:scale-[1.02] transition-transform cursor-pointer w-full text-white text-left p-3.5"
+                                    style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.1))', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)', padding: '0.5rem', borderRadius: '0.75rem', boxShadow: '0 0 15px rgba(139, 92, 246, 0.4)' }}>
+                                            <History size={20} color="white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-sm">Memory Dashboard</h3>
+                                            <p className="text-xs text-dim">View saved people, dates & convos</p>
+                                        </div>
+                                    </div>
+                                </button>
 
                                 {/* Conversation Recorder */}
                                 {primaryModel && (
