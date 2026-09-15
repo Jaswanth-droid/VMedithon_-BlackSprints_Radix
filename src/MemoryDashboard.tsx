@@ -333,7 +333,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 ))}
             </div>
 
-            {/* Main Content - Flex Layout with Active Expansion & Background Blur */}
+            {/* Main Content - Flex Layout with Active Spotlight Expansion & Background Blur */}
             <div style={{
                 padding: '16px 32px',
                 display: 'flex',
@@ -347,32 +347,46 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 <div
                     onClick={() => activeTab !== 'dates' && setActiveTab('dates')}
                     style={{
-                        flex: activeTab === 'dates' ? 3.2 : 0.95,
+                        flex: activeTab === 'dates' ? 5.5 : 0.85,
                         borderRadius: '16px',
-                        border: activeTab === 'dates' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        border: activeTab === 'dates' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.06)',
                         background: activeTab === 'dates'
-                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
-                            : 'rgba(255,255,255,0.02)',
-                        padding: '16px',
-                        boxShadow: activeTab === 'dates' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.18) 0%, rgba(15,15,25,0.98) 100%)'
+                            : 'rgba(255,255,255,0.015)',
+                        padding: '18px',
+                        boxShadow: activeTab === 'dates' ? '0 0 45px rgba(236,72,153,0.4)' : 'none',
                         overflow: 'hidden',
-                        filter: activeTab === 'dates' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
-                        transform: activeTab === 'dates' ? 'scale(1.005)' : 'scale(0.97)',
+                        filter: activeTab === 'dates' ? 'none' : 'blur(6px) opacity(0.25) brightness(0.6)',
+                        transform: activeTab === 'dates' ? 'scale(1.01)' : 'scale(0.96)',
                         cursor: activeTab === 'dates' ? 'default' : 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative'
                     }}
                 >
-                    {activeTab === 'dates' && (
+                    {activeTab === 'dates' ? (
                         <div style={{
-                            position: 'absolute', top: '12px', right: '16px',
-                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            position: 'absolute', top: '14px', right: '16px',
+                            background: 'rgba(236,72,153,0.25)', border: '1px solid #ec4899',
                             color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
                             padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
                         }}>
-                            ACTIVE FOCUS
+                            ✨ ACTIVE FOCUS
+                        </div>
+                    ) : (
+                        <div style={{
+                            position: 'absolute', inset: 0, zIndex: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.2)', opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                        >
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f472b6', background: 'rgba(15,15,25,0.9)', padding: '6px 14px', borderRadius: '99px', border: '1px solid #ec4899' }}>
+                                Click to Focus Calendar
+                            </span>
                         </div>
                     )}
 
@@ -523,32 +537,46 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 <div
                     onClick={() => activeTab !== 'conversations' && setActiveTab('conversations')}
                     style={{
-                        flex: activeTab === 'conversations' ? 3.2 : 0.95,
+                        flex: activeTab === 'conversations' ? 5.5 : 0.85,
                         borderRadius: '16px',
-                        border: activeTab === 'conversations' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        border: activeTab === 'conversations' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.06)',
                         background: activeTab === 'conversations'
-                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
-                            : 'rgba(255,255,255,0.02)',
-                        padding: '16px',
-                        boxShadow: activeTab === 'conversations' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.18) 0%, rgba(15,15,25,0.98) 100%)'
+                            : 'rgba(255,255,255,0.015)',
+                        padding: '18px',
+                        boxShadow: activeTab === 'conversations' ? '0 0 45px rgba(236,72,153,0.4)' : 'none',
                         overflow: 'hidden',
-                        filter: activeTab === 'conversations' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
-                        transform: activeTab === 'conversations' ? 'scale(1.005)' : 'scale(0.97)',
+                        filter: activeTab === 'conversations' ? 'none' : 'blur(6px) opacity(0.25) brightness(0.6)',
+                        transform: activeTab === 'conversations' ? 'scale(1.01)' : 'scale(0.96)',
                         cursor: activeTab === 'conversations' ? 'default' : 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative'
                     }}
                 >
-                    {activeTab === 'conversations' && (
+                    {activeTab === 'conversations' ? (
                         <div style={{
-                            position: 'absolute', top: '12px', right: '16px',
-                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            position: 'absolute', top: '14px', right: '16px',
+                            background: 'rgba(236,72,153,0.25)', border: '1px solid #ec4899',
                             color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
                             padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
                         }}>
-                            ACTIVE FOCUS
+                            ✨ ACTIVE FOCUS
+                        </div>
+                    ) : (
+                        <div style={{
+                            position: 'absolute', inset: 0, zIndex: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.2)', opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                        >
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f472b6', background: 'rgba(15,15,25,0.9)', padding: '6px 14px', borderRadius: '99px', border: '1px solid #ec4899' }}>
+                                Click to Focus Conversations
+                            </span>
                         </div>
                     )}
 
@@ -622,32 +650,46 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 <div
                     onClick={() => activeTab !== 'people' && setActiveTab('people')}
                     style={{
-                        flex: activeTab === 'people' ? 3.2 : 0.95,
+                        flex: activeTab === 'people' ? 5.5 : 0.85,
                         borderRadius: '16px',
-                        border: activeTab === 'people' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        border: activeTab === 'people' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.06)',
                         background: activeTab === 'people'
-                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
-                            : 'rgba(255,255,255,0.02)',
-                        padding: '16px',
-                        boxShadow: activeTab === 'people' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.18) 0%, rgba(15,15,25,0.98) 100%)'
+                            : 'rgba(255,255,255,0.015)',
+                        padding: '18px',
+                        boxShadow: activeTab === 'people' ? '0 0 45px rgba(236,72,153,0.4)' : 'none',
                         overflow: 'hidden',
-                        filter: activeTab === 'people' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
-                        transform: activeTab === 'people' ? 'scale(1.005)' : 'scale(0.97)',
+                        filter: activeTab === 'people' ? 'none' : 'blur(6px) opacity(0.25) brightness(0.6)',
+                        transform: activeTab === 'people' ? 'scale(1.01)' : 'scale(0.96)',
                         cursor: activeTab === 'people' ? 'default' : 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative'
                     }}
                 >
-                    {activeTab === 'people' && (
+                    {activeTab === 'people' ? (
                         <div style={{
-                            position: 'absolute', top: '12px', right: '16px',
-                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            position: 'absolute', top: '14px', right: '16px',
+                            background: 'rgba(236,72,153,0.25)', border: '1px solid #ec4899',
                             color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
                             padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
                         }}>
-                            ACTIVE FOCUS
+                            ✨ ACTIVE FOCUS
+                        </div>
+                    ) : (
+                        <div style={{
+                            position: 'absolute', inset: 0, zIndex: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.2)', opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                        >
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f472b6', background: 'rgba(15,15,25,0.9)', padding: '6px 14px', borderRadius: '99px', border: '1px solid #ec4899' }}>
+                                Click to Focus People
+                            </span>
                         </div>
                     )}
 
@@ -660,7 +702,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                         flex: 1,
                         overflowY: 'auto',
                         display: 'grid',
-                        gridTemplateColumns: activeTab === 'people' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+                        gridTemplateColumns: activeTab === 'people' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
                         gap: '16px',
                         alignContent: 'start',
                         padding: '4px 0'
@@ -696,32 +738,46 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 <div
                     onClick={() => activeTab !== 'notes' && setActiveTab('notes')}
                     style={{
-                        flex: activeTab === 'notes' ? 3.2 : 0.95,
+                        flex: activeTab === 'notes' ? 5.5 : 0.85,
                         borderRadius: '16px',
-                        border: activeTab === 'notes' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        border: activeTab === 'notes' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.06)',
                         background: activeTab === 'notes'
-                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
-                            : 'rgba(255,255,255,0.02)',
-                        padding: '16px',
-                        boxShadow: activeTab === 'notes' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.18) 0%, rgba(15,15,25,0.98) 100%)'
+                            : 'rgba(255,255,255,0.015)',
+                        padding: '18px',
+                        boxShadow: activeTab === 'notes' ? '0 0 45px rgba(236,72,153,0.4)' : 'none',
                         overflow: 'hidden',
-                        filter: activeTab === 'notes' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
-                        transform: activeTab === 'notes' ? 'scale(1.005)' : 'scale(0.97)',
+                        filter: activeTab === 'notes' ? 'none' : 'blur(6px) opacity(0.25) brightness(0.6)',
+                        transform: activeTab === 'notes' ? 'scale(1.01)' : 'scale(0.96)',
                         cursor: activeTab === 'notes' ? 'default' : 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                         display: 'flex',
                         flexDirection: 'column',
                         position: 'relative'
                     }}
                 >
-                    {activeTab === 'notes' && (
+                    {activeTab === 'notes' ? (
                         <div style={{
-                            position: 'absolute', top: '12px', right: '16px',
-                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            position: 'absolute', top: '14px', right: '16px',
+                            background: 'rgba(236,72,153,0.25)', border: '1px solid #ec4899',
                             color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
                             padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
                         }}>
-                            ACTIVE FOCUS
+                            ✨ ACTIVE FOCUS
+                        </div>
+                    ) : (
+                        <div style={{
+                            position: 'absolute', inset: 0, zIndex: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(0,0,0,0.2)', opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                        >
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#f472b6', background: 'rgba(15,15,25,0.9)', padding: '6px 14px', borderRadius: '99px', border: '1px solid #ec4899' }}>
+                                Click to Focus Activity Stream
+                            </span>
                         </div>
                     )}
 
