@@ -97,6 +97,8 @@ function App() {
     // Voice/face recognition -> "Who is this?" recall card + familiar-voice greeting
     const [recognizedPerson, setRecognizedPerson] = useState<RecognizedPerson | null>(null);
     const [greetingPerson, setGreetingPerson] = useState<{ name: string; relation: string } | null>(null);
+    const [progressionRecords, setProgressionRecords] = useState<ProgressionRecord[]>([]);
+    const [behaviorLogs, setBehaviorLogs] = useState<BehaviorIncident[]>([]);
 
     // Cognitive alert from CBAE module
     const [cognitiveAlert, setCognitiveAlert] = useState<CognitiveAlert | null>(null);
