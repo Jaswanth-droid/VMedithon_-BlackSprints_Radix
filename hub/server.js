@@ -546,22 +546,22 @@ app.get('/', (_req, res) => {
                 <!-- Severity & Velocity Banner -->
                 <div id="severityBanner" class="severity-banner">
                     <div>
-                        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8;">Current Diagnosis Staging</span>
-                        <h2 id="currentStageText" style="font-size: 20px; font-weight: 800; margin-top: 2px;">Moderate Alzheimer's</h2>
-                        <span id="patientInfoText" style="font-size: 12px; opacity: 0.85;">Patient: Eleanor Vance, Age 72</span>
+                        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85;">How Serious Is The Condition?</span>
+                        <h2 id="currentStageText" style="font-size: 20px; font-weight: 800; margin-top: 2px;">Moderate Memory Loss</h2>
+                        <span id="patientInfoText" style="font-size: 12px; opacity: 0.85;">Patient Details</span>
                     </div>
                     <div style="text-align: right;">
-                        <span style="font-size: 11px; text-transform: uppercase; opacity: 0.8;">Progression Velocity</span>
-                        <h3 id="velocityRateText" style="font-size: 18px; font-weight: 800; color: #f43f5e; margin-top: 2px;">Accelerated Decline</h3>
-                        <span id="annualDropText" style="font-size: 12px; opacity: 0.85;">-3.6 MMSE pts/year</span>
+                        <span style="font-size: 11px; text-transform: uppercase; opacity: 0.85;">How Fast Is It Getting Worse?</span>
+                        <h3 id="velocityRateText" style="font-size: 18px; font-weight: 800; color: #f43f5e; margin-top: 2px;">Worsening Faster Than Normal</h3>
+                        <span id="annualDropText" style="font-size: 12px; opacity: 0.85;">Dropping ~4 points/year</span>
                     </div>
                 </div>
 
                 <!-- Velocity Gauge -->
                 <div style="margin-bottom: 18px;">
                     <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8;">
-                        <span>Progression Speedometer:</span>
-                        <span id="velocitySummarySpan" style="font-weight: 600; color: #f1f5f9;">Faster than standard average</span>
+                        <span>Memory Decline Pace:</span>
+                        <span id="velocitySummarySpan" style="font-weight: 600; color: #f1f5f9;">Pace summary</span>
                     </div>
                     <div class="speed-gauge">
                         <div id="speedFill" class="speed-fill" style="width: 75%;"></div>
@@ -570,18 +570,18 @@ app.get('/', (_req, res) => {
 
                 <!-- Longitudinal Timeline Comparison Table -->
                 <h3 style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">
-                    📅 Hospital Visit History & Diagnostic Deltas
+                    📅 Medical Check-Up History & Memory Test Scores
                 </h3>
                 <div style="overflow-x: auto; margin-bottom: 16px;">
                     <table class="timeline-table">
                         <thead>
                             <tr>
-                                <th>Visit Date</th>
-                                <th>Staging</th>
-                                <th>MMSE</th>
-                                <th>MoCA</th>
-                                <th>CDR</th>
-                                <th>Imaging & Biomarkers</th>
+                                <th>Date of Visit</th>
+                                <th>Condition Summary</th>
+                                <th>Memory Score (/30)</th>
+                                <th>Thinking Test</th>
+                                <th>Independence Level</th>
+                                <th>Brain Scan & Lab Findings (Explained)</th>
                             </tr>
                         </thead>
                         <tbody id="timelineTbody"></tbody>
@@ -591,18 +591,18 @@ app.get('/', (_req, res) => {
                 <!-- Clinical Comparison & Everyday Impact -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="metric-box">
-                        <h4 style="font-size: 13px; font-weight: 700; color: #818cf8; margin-bottom: 6px;">🔍 Cognitive Decline Overview</h4>
-                        <p id="declineOverview" style="font-size: 12px; color: #cbd5e1; line-height: 1.5;"></p>
+                        <h4 style="font-size: 13px; font-weight: 700; color: #818cf8; margin-bottom: 6px;">🔍 Memory & Thinking Changes</h4>
+                        <p id="declineOverview" style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5;"></p>
                     </div>
                     <div class="metric-box">
-                        <h4 style="font-size: 13px; font-weight: 700; color: #ec4899; margin-bottom: 6px;">🏡 Everyday Living Impact</h4>
-                        <p id="functionalImpact" style="font-size: 12px; color: #cbd5e1; line-height: 1.5;"></p>
+                        <h4 style="font-size: 13px; font-weight: 700; color: #ec4899; margin-bottom: 6px;">🏡 Everyday Life & Independence</h4>
+                        <p id="functionalImpact" style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5;"></p>
                     </div>
                 </div>
 
                 <!-- Caregiver Protocol -->
                 <div class="metric-box" style="margin-top: 14px; background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25);">
-                    <h4 style="font-size: 13px; font-weight: 700; color: #c084fc; margin-bottom: 8px;">🛡️ Caregiver Action Plan & Safety Guidance</h4>
+                    <h4 style="font-size: 13px; font-weight: 700; color: #c084fc; margin-bottom: 8px;">🛡️ Family Action Plan & Home Safety Steps</h4>
                     <div id="caregiverList"></div>
                 </div>
             </div>

@@ -1,6 +1,6 @@
 /**
- * Patient Longitudinal Progression & Risk Speedometer Web Page
- * Displays multi-year cognitive decline graph chart and 270-degree analog speedometer visualizer.
+ * Patient Health Progression & Disease Worsening Speedometer
+ * Explains patient condition in clear, simple, plain-English terms for families and caregivers.
  */
 
 function renderPatientHistoryPage(analytics) {
@@ -10,12 +10,45 @@ function renderPatientHistoryPage(analytics) {
     const scans = analytics.scans || [];
     const prog = analytics.prognosis;
 
+    // Plain English helper mappings
+    let simpleStage = "Moderate Memory Loss";
+    let simpleStageExplanation = "Needs daily help with complex tasks, managing bills, and remembering recent events.";
+    if (p.currentStage?.toLowerCase().includes('mild cognitive') || (p.currentMmse >= 24)) {
+        simpleStage = "Early Mild Memory Decline";
+        simpleStageExplanation = "Mostly independent, but frequently forgets recent names, appointments, or keys.";
+    } else if (p.currentStage?.toLowerCase().includes('mild alzheimer') || (p.currentMmse >= 20)) {
+        simpleStage = "Mild Memory & Thinking Decline";
+        simpleStageExplanation = "Struggles with financial tasks, new directions, and remembering recent conversations.";
+    } else if (p.currentStage?.toLowerCase().includes('moderate') || (p.currentMmse >= 13)) {
+        simpleStage = "Moderate Memory Loss (Needs Daily Help)";
+        simpleStageExplanation = "Needs daily guidance for medicine, remembering dates, and safe navigation.";
+    } else {
+        simpleStage = "Advanced Memory Loss (Needs Full Support)";
+        simpleStageExplanation = "Requires continuous supervision for personal care, meals, and safety.";
+    }
+
+    let simpleSpeedTier = "Getting Worse Faster Than Normal";
+    let simpleSpeedBadgeColor = "#f59e0b"; // Amber
+    if (speed.riskScore >= 75) {
+        simpleSpeedTier = "Rapid Worsening (High Alert)";
+        simpleSpeedBadgeColor = "#ef4444";
+    } else if (speed.riskScore >= 50) {
+        simpleSpeedTier = "Worsening Faster Than Normal";
+        simpleSpeedBadgeColor = "#f59e0b";
+    } else if (speed.riskScore >= 30) {
+        simpleSpeedTier = "Expected / Gradual Worsening";
+        simpleSpeedBadgeColor = "#3b82f6";
+    } else {
+        simpleSpeedTier = "Slow / Relatively Stable";
+        simpleSpeedBadgeColor = "#10b981";
+    }
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${p.name} — Longitudinal Alzheimer's Progression & Risk Analysis</title>
+    <title>${p.name} — Simple Health & Memory Progression Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -95,8 +128,8 @@ function renderPatientHistoryPage(analytics) {
             background: linear-gradient(90deg, #6366f1, #a855f7);
         }
         .stat-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em; }
-        .stat-val { font-size: 24px; font-weight: 800; color: #f8fafc; margin-top: 4px; }
-        .stat-sub { font-size: 12px; color: #cbd5e1; margin-top: 2px; }
+        .stat-val { font-size: 22px; font-weight: 800; color: #f8fafc; margin-top: 4px; }
+        .stat-sub { font-size: 12px; color: #cbd5e1; margin-top: 3px; line-height: 1.35; }
 
         .main-grid {
             display: grid;
@@ -168,15 +201,14 @@ function renderPatientHistoryPage(analytics) {
             text-align: center;
         }
         .speed-num {
-            font-size: 42px;
+            font-size: 40px;
             font-weight: 900;
             line-height: 1;
-            font-feature-settings: 'tnum';
         }
         .speed-unit {
             font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             color: #94a3b8;
             margin-top: 4px;
         }
@@ -238,7 +270,7 @@ function renderPatientHistoryPage(analytics) {
             margin-bottom: 8px;
             font-size: 13px;
             color: #cbd5e1;
-            line-height: 1.4;
+            line-height: 1.45;
         }
         .plan-dot { color: #818cf8; font-weight: bold; }
     </style>
@@ -249,63 +281,63 @@ function renderPatientHistoryPage(analytics) {
             <div style="display: flex; align-items: center; gap: 12px;">
                 <h1 class="title">👤 ${p.name}</h1>
                 <span class="badge" style="background: rgba(99,102,241,0.2); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.4);">
-                    ${p.totalScans} Serial Scans Recorded
+                    ${p.totalScans} Medical Reports On File
                 </span>
                 <span class="badge" style="background: rgba(168,85,247,0.2); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.4);">
-                    ${p.age} yrs • ${p.gender}
+                    ${p.age ? p.age + ' years old' : 'Senior'} ${p.gender ? '• ' + p.gender : ''}
                 </span>
             </div>
-            <p class="subtitle">Longitudinal Neurodegenerative Trajectory & Predictive Health Record • ${p.primaryHospital}</p>
+            <p class="subtitle">Long-Term Memory & Health Progression Summary • ${p.primaryHospital}</p>
         </div>
         <div>
             <a href="/" class="back-btn">
-                ⬅ Back to Diagnostic Scanner
+                ⬅ Back to Report Scanner
             </a>
         </div>
     </div>
 
-    <!-- Hero Stats Row -->
+    <!-- Hero Stats Row (Explained in Simple Terms) -->
     <div class="grid-hero">
         <div class="hero-stat">
-            <div class="stat-label">Current Cognitive Staging</div>
-            <div class="stat-val" style="font-size: 19px; color: #c084fc;">${p.currentStage}</div>
-            <div class="stat-sub">Physician: ${p.primaryPhysician}</div>
+            <div class="stat-label">How Serious Is The Memory Loss?</div>
+            <div class="stat-val" style="font-size: 17px; color: #c084fc;">${simpleStage}</div>
+            <div class="stat-sub">${simpleStageExplanation}</div>
         </div>
 
         <div class="hero-stat">
-            <div class="stat-label">Latest MMSE / MoCA Score</div>
+            <div class="stat-label">Current Memory Test Score</div>
             <div class="stat-val" style="color: #38bdf8;">
-                ${p.currentMmse} / 30 <span style="font-size: 15px; color: #94a3b8; font-weight: 500;">(MoCA: ${p.currentMoca})</span>
+                ${p.currentMmse} / 30
             </div>
-            <div class="stat-sub">Clinical Dementia Rating: CDR ${p.currentCdr}</div>
+            <div class="stat-sub">${p.currentMmse >= 24 ? 'Mild memory slips' : p.currentMmse >= 18 ? 'Noticeable memory gaps in daily life' : 'Severe memory difficulty'}</div>
         </div>
 
         <div class="hero-stat">
-            <div class="stat-label">Overall Time Elapsed</div>
+            <div class="stat-label">Time Tracked In Medical History</div>
             <div class="stat-val" style="color: #fbbf24;">${p.trackingDurationMonths} Months</div>
-            <div class="stat-sub">Cumulative MMSE Loss: -${speed.totalMmseDrop} pts</div>
+            <div class="stat-sub">Lost ~${speed.totalMmseDrop} memory points since symptoms began</div>
         </div>
 
         <div class="hero-stat">
-            <div class="stat-label">Longitudinal Velocity</div>
-            <div class="stat-val" style="color: ${speed.riskColor};">${speed.annualMmseDecline} pts/yr</div>
-            <div class="stat-sub">${speed.riskTier}</div>
+            <div class="stat-label">How Fast Is It Getting Worse?</div>
+            <div class="stat-val" style="font-size: 18px; color: ${simpleSpeedBadgeColor};">${simpleSpeedTier}</div>
+            <div class="stat-sub">Dropping ~${speed.annualMmseDecline} memory points each year</div>
         </div>
     </div>
 
     <!-- Speedometer + Trajectory Graph Row -->
     <div class="main-grid">
-        <!-- 270-Degree Analog Speedometer Visualizer -->
+        <!-- 270-Degree Speedometer Visualizer -->
         <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center;">
             <div class="card-header" style="width: 100%;">
-                <h2 class="card-title">⚡ 270° Progression Speedometer</h2>
-                <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Velocity & Risk Metric</span>
+                <h2 class="card-title">⚡ How Fast Is The Disease Advancing?</h2>
+                <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Progression Meter</span>
             </div>
 
             <div class="speedometer-container">
                 <svg class="speedometer-svg" viewBox="0 0 290 250">
                     <defs>
-                        <!-- 270 deg Gradient (Green -> Yellow -> Orange -> Red) -->
+                        <!-- 270 deg Gradient (Green -> Blue -> Orange -> Red) -->
                         <linearGradient id="speedGrad" x1="0%" y1="100%" x2="100%" y2="0%">
                             <stop offset="0%" stop-color="#10b981" />
                             <stop offset="35%" stop-color="#3b82f6" />
@@ -318,8 +350,7 @@ function renderPatientHistoryPage(analytics) {
                         </filter>
                     </defs>
 
-                    <!-- Background Arc (270 degrees from 135deg to 405deg) Radius=105, Center=(145,145) -->
-                    <!-- Circumference of 270 deg with R=105 is ~494.8 -->
+                    <!-- Background Arc -->
                     <path class="speed-arc-bg" d="M 70.75 219.25 A 105 105 0 1 1 219.25 219.25" stroke-dasharray="495" stroke-dashoffset="0" />
                     
                     <!-- Colored Active Arc -->
@@ -328,60 +359,49 @@ function renderPatientHistoryPage(analytics) {
                           stroke-dasharray="495"
                           stroke-dashoffset="${495 - (495 * (speed.riskScore / 100))}" />
 
-                    <!-- Dial Ticks -->
-                    <!-- 0 Score (135 deg) -->
-                    <line x1="63" y1="227" x2="71" y2="219" stroke="#10b981" stroke-width="2.5" />
-                    <text x="50" y="240" fill="#10b981" font-size="11" font-weight="700">0</text>
+                    <!-- Dial Labels (Simple Terms) -->
+                    <!-- Slow -->
+                    <text x="32" y="240" fill="#10b981" font-size="10" font-weight="700">SLOW</text>
 
-                    <!-- 25 Score (202.5 deg) -->
-                    <line x1="33" y1="145" x2="45" y2="145" stroke="#3b82f6" stroke-width="2" />
-                    <text x="18" y="149" fill="#94a3b8" font-size="10" font-weight="600">25</text>
+                    <!-- Moderate -->
+                    <text x="126" y="25" fill="#f59e0b" font-size="10" font-weight="700">MODERATE</text>
 
-                    <!-- 50 Score (270 deg - Top) -->
-                    <line x1="145" y1="33" x2="145" y2="45" stroke="#f59e0b" stroke-width="2.5" />
-                    <text x="139" y="25" fill="#f59e0b" font-size="11" font-weight="700">50</text>
-
-                    <!-- 75 Score (337.5 deg) -->
-                    <line x1="257" y1="145" x2="245" y2="145" stroke="#f97316" stroke-width="2" />
-                    <text x="262" y="149" fill="#94a3b8" font-size="10" font-weight="600">75</text>
-
-                    <!-- 100 Score (405 deg) -->
-                    <line x1="227" y1="227" x2="219" y2="219" stroke="#ef4444" stroke-width="2.5" />
-                    <text x="232" y="240" fill="#ef4444" font-size="11" font-weight="700">100</text>
+                    <!-- Fast -->
+                    <text x="230" y="240" fill="#ef4444" font-size="10" font-weight="700">FAST</text>
 
                     <!-- Speedometer Needle -->
                     <g id="needleGroup" class="needle-pivot" style="transform: rotate(${speed.needleAngle}deg);">
-                        <!-- Needle body -->
-                        <polygon points="142,145 145,55 148,145" fill="${speed.riskColor}" filter="url(#glow)" />
-                        <!-- Center Hub -->
-                        <circle cx="145" cy="145" r="9" fill="#1e1b4b" stroke="${speed.riskColor}" stroke-width="3" />
+                        <polygon points="142,145 145,55 148,145" fill="${simpleSpeedBadgeColor}" filter="url(#glow)" />
+                        <circle cx="145" cy="145" r="9" fill="#1e1b4b" stroke="${simpleSpeedBadgeColor}" stroke-width="3" />
                         <circle cx="145" cy="145" r="3.5" fill="#f8fafc" />
                     </g>
                 </svg>
 
                 <div class="speed-readout">
-                    <div class="speed-num" style="color: ${speed.riskColor};">${speed.riskScore}</div>
-                    <div class="speed-unit">Risk Index / 100</div>
+                    <div class="speed-num" style="color: ${simpleSpeedBadgeColor};">${speed.riskScore}</div>
+                    <div class="speed-unit">Care Need Index / 100</div>
                 </div>
             </div>
 
-            <div class="risk-badge" style="background: ${speed.riskColor}22; color: ${speed.riskColor}; border: 1px solid ${speed.riskColor}66;">
-                ${speed.riskTier}
+            <div class="risk-badge" style="background: ${simpleSpeedBadgeColor}22; color: ${simpleSpeedBadgeColor}; border: 1px solid ${simpleSpeedBadgeColor}66;">
+                ${simpleSpeedTier}
             </div>
 
-            <p style="font-size: 12.5px; color: #cbd5e1; margin-top: 12px; line-height: 1.45; max-width: 340px;">
-                ${speed.riskDescription}
-            </p>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px; margin-top: 14px; text-align: left;">
+                <strong style="color: #f1f5f9; font-size: 12px; display: block; margin-bottom: 4px;">💡 What this means for the family:</strong>
+                <p style="font-size: 12px; color: #cbd5e1; line-height: 1.45;">
+                    The patient is losing about <strong>${speed.annualMmseDecline} memory points per year</strong>. At this pace, they will need close supervision for daily medications, financial safety, and recognizing familiar routes.
+                </p>
+            </div>
         </div>
 
-        <!-- Interactive Longitudinal Trajectory Graph Chart -->
+        <!-- Interactive Memory Ability Graph Chart -->
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">📈 Longitudinal Cognitive Trajectory & 12-Mo Projection</h2>
+                <h2 class="card-title">📈 Memory Ability Over Time & Future Forecast</h2>
                 <div style="display: flex; gap: 8px;">
-                    <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(56,189,248,0.15); color: #38bdf8; font-weight: 700;">MMSE</span>
-                    <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(192,132,252,0.15); color: #c084fc; font-weight: 700;">MoCA</span>
-                    <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(244,63,94,0.15); color: #f43f5e; font-weight: 700;">Projected</span>
+                    <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(56,189,248,0.15); color: #38bdf8; font-weight: 700;">Past Memory Score</span>
+                    <span style="font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(244,63,94,0.15); color: #f43f5e; font-weight: 700;">1-Year Prediction</span>
                 </div>
             </div>
 
@@ -390,63 +410,68 @@ function renderPatientHistoryPage(analytics) {
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
-                <div style="background: rgba(0,0,0,0.3); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">12-Month Projected MMSE</div>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Expected Memory Score in 1 Year</div>
                     <div style="font-size: 18px; font-weight: 800; color: #f43f5e; margin-top: 2px;">
-                        ${prog.predictedMmse12Mo} / 30
+                        ~${prog.predictedMmse12Mo} / 30
                     </div>
+                    <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">Will likely need more hands-on daily support</div>
                 </div>
-                <div style="background: rgba(0,0,0,0.3); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">12-Month Projected MoCA</div>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Current Level of Independence</div>
                     <div style="font-size: 18px; font-weight: 800; color: #fbbf24; margin-top: 2px;">
-                        ${prog.predictedMoca12Mo} / 30
+                        Partially Independent
                     </div>
+                    <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">Needs help with complex tasks & medicines</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Complete Serial Scan Log Table -->
+    <!-- Complete Serial Scan Log Table (In Simple Terms) -->
     <div class="card" style="margin-bottom: 24px;">
         <div class="card-header">
-            <h2 class="card-title">📋 Historical Hospital Scans & Diagnostic Matrix</h2>
-            <span style="font-size: 12px; color: #94a3b8;">${scans.length} Authenticated Hospital Reports</span>
+            <h2 class="card-title">📋 Medical Visits & Brain Test History</h2>
+            <span style="font-size: 12px; color: #94a3b8;">${scans.length} Recorded Medical Check-Ups</span>
         </div>
 
         <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
-                        <th>Scan Date & ID</th>
-                        <th>Hospital & Physician</th>
-                        <th>Clinical Staging</th>
-                        <th>MMSE</th>
-                        <th>MoCA</th>
-                        <th>CDR</th>
-                        <th>Neuroimaging & Biomarkers</th>
-                        <th>Treatment Adjustment</th>
+                        <th>Date of Visit</th>
+                        <th>Hospital & Doctor</th>
+                        <th>Condition at Visit</th>
+                        <th>Memory Test Score</th>
+                        <th>Brain Scan / MRI Findings (Explained)</th>
+                        <th>Medications & Care Prescribed</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${scans.map(s => {
                         const mmseClass = (s.mmse >= 24) ? 'score-high' : (s.mmse >= 19) ? 'score-mid' : 'score-low';
-                        const mocaClass = (s.moca >= 22) ? 'score-high' : (s.moca >= 17) ? 'score-mid' : 'score-low';
+                        
+                        // Plain english explanation of imaging
+                        let plainImaging = s.mriFindings;
+                        if (s.mriFindings?.toLowerCase().includes('hippocampal atrophy') || s.mriFindings?.toLowerCase().includes('volume reduction')) {
+                            plainImaging = "Brain scan shows shrinkage in the memory center of the brain (Hippocampus).";
+                        } else if (s.mriFindings?.toLowerCase().includes('age-appropriate') || s.mriFindings?.toLowerCase().includes('normal')) {
+                            plainImaging = "Brain scan was normal for age with early mild memory signs.";
+                        }
+
                         return `
                         <tr>
                             <td>
                                 <strong style="color: #818cf8;">${s.date}</strong>
-                                <div style="font-size: 10px; color: #64748b; font-family: monospace;">${s.scanId}</div>
                             </td>
                             <td>
                                 <div style="font-weight: 600; color: #f1f5f9;">${s.hospital}</div>
                                 <div style="font-size: 11px; color: #94a3b8;">${s.physician}</div>
                             </td>
                             <td style="font-weight: 600; color: #c084fc;">${s.stage}</td>
-                            <td><span class="score-pill ${mmseClass}">${s.mmse}/30</span></td>
-                            <td><span class="score-pill ${mocaClass}">${s.moca}/30</span></td>
-                            <td style="font-weight: 700;">CDR ${s.cdr}</td>
-                            <td style="font-size: 12px; max-width: 260px; line-height: 1.35; color: #cbd5e1;">${s.mriFindings}</td>
-                            <td style="font-size: 12px; max-width: 220px; line-height: 1.35; color: #94a3b8;">${s.treatment}</td>
+                            <td><span class="score-pill ${mmseClass}">${s.mmse} / 30</span></td>
+                            <td style="font-size: 12px; max-width: 280px; line-height: 1.4; color: #cbd5e1;">${plainImaging}</td>
+                            <td style="font-size: 12px; max-width: 220px; line-height: 1.4; color: #94a3b8;">${s.treatment}</td>
                         </tr>
                         `;
                     }).join('')}
@@ -455,20 +480,45 @@ function renderPatientHistoryPage(analytics) {
         </div>
     </div>
 
-    <!-- Prognosis & Caregiver Action Plan -->
+    <!-- Practical Caregiver Action Plan (Simple Terms) -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🛡️ Long-Term Caregiver Roadmap & Safety Recommendations</h2>
-            <span style="font-size: 12px; color: #4ade80; font-weight: 700;">Active Clinical Protocol</span>
+            <h2 class="card-title">🛡️ Simple Home Care & Safety Plan for Family</h2>
+            <span style="font-size: 12px; color: #4ade80; font-weight: 700;">Recommended Steps</span>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
-            ${prog.keyRecommendations.map(rec => `
-                <div class="plan-item" style="background: rgba(0,0,0,0.25); padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                    <span class="plan-dot" style="color: #4ade80;">✓</span>
-                    <span>${rec}</span>
+            <div class="plan-item" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="plan-dot" style="color: #4ade80; font-size: 16px;">✓</span>
+                <div>
+                    <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">Strict Medicine Routine:</strong>
+                    <span style="color: #cbd5e1; font-size: 12.5px;">Always supervise medicines (like Donepezil/Memantine) so doses are never missed or accidentally doubled.</span>
                 </div>
-            `).join('')}
+            </div>
+
+            <div class="plan-item" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="plan-dot" style="color: #4ade80; font-size: 16px;">✓</span>
+                <div>
+                    <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">Visual Memory Reminders:</strong>
+                    <span style="color: #cbd5e1; font-size: 12.5px;">Place a large digital clock with day/date visible, and label important rooms (bathroom, bedroom, kitchen).</span>
+                </div>
+            </div>
+
+            <div class="plan-item" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="plan-dot" style="color: #4ade80; font-size: 16px;">✓</span>
+                <div>
+                    <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">Wandering & Home Safety:</strong>
+                    <span style="color: #cbd5e1; font-size: 12.5px;">Keep an emergency contact card or GPS tracker on the patient when going outside, and remove tripping hazards.</span>
+                </div>
+            </div>
+
+            <div class="plan-item" style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="plan-dot" style="color: #4ade80; font-size: 16px;">✓</span>
+                <div>
+                    <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">Regular Doctor Visits:</strong>
+                    <span style="color: #cbd5e1; font-size: 12.5px;">Schedule a follow-up memory check every 3 to 6 months to see if medicine adjustments are needed.</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -478,21 +528,14 @@ function renderPatientHistoryPage(analytics) {
         
         const labels = ${JSON.stringify(chart.labels)};
         const mmseData = ${JSON.stringify(chart.mmse)};
-        const mocaData = ${JSON.stringify(chart.moca)};
         
         // Add Future Projection Point
         const allLabels = [...labels, "${chart.futureDate}"];
         
-        // Historical MMSE line (null on future)
+        // Historical MMSE line
         const historicalMmse = [...mmseData, null];
-        // Projected MMSE line (connects from last historical point to future point)
         const projectedMmse = mmseData.map((val, idx) => (idx === mmseData.length - 1 ? val : null));
         projectedMmse.push(${chart.projectedMmse});
-
-        // Historical MoCA
-        const historicalMoca = [...mocaData, null];
-        const projectedMoca = mocaData.map((val, idx) => (idx === mocaData.length - 1 ? val : null));
-        projectedMoca.push(${chart.projectedMoca});
 
         new Chart(ctx, {
             type: 'line',
@@ -500,7 +543,7 @@ function renderPatientHistoryPage(analytics) {
                 labels: allLabels,
                 datasets: [
                     {
-                        label: 'MMSE Score (/30)',
+                        label: 'Memory Test Score (/30)',
                         data: historicalMmse,
                         borderColor: '#38bdf8',
                         backgroundColor: 'rgba(56, 189, 248, 0.12)',
@@ -512,35 +555,13 @@ function renderPatientHistoryPage(analytics) {
                         fill: true
                     },
                     {
-                        label: 'MoCA Score (/30)',
-                        data: historicalMoca,
-                        borderColor: '#c084fc',
-                        backgroundColor: 'transparent',
-                        borderWidth: 2.5,
-                        pointBackgroundColor: '#c084fc',
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        tension: 0.25
-                    },
-                    {
-                        label: '12-Mo Projected MMSE',
+                        label: 'Next Year Expected Score',
                         data: projectedMmse,
                         borderColor: '#f43f5e',
                         borderDash: [6, 6],
                         borderWidth: 2.5,
                         pointBackgroundColor: '#f43f5e',
                         pointRadius: 6,
-                        pointStyle: 'triangle',
-                        tension: 0.2
-                    },
-                    {
-                        label: '12-Mo Projected MoCA',
-                        data: projectedMoca,
-                        borderColor: '#fbbf24',
-                        borderDash: [6, 6],
-                        borderWidth: 2,
-                        pointBackgroundColor: '#fbbf24',
-                        pointRadius: 5,
                         pointStyle: 'triangle',
                         tension: 0.2
                     }
@@ -570,7 +591,7 @@ function renderPatientHistoryPage(analytics) {
                         max: 30,
                         grid: { color: 'rgba(255, 255, 255, 0.06)' },
                         ticks: { color: '#94a3b8', font: { size: 11 } },
-                        title: { display: true, text: 'Cognitive Score (/30)', color: '#64748b', font: { size: 11 } }
+                        title: { display: true, text: 'Memory & Thinking Score (Out of 30)', color: '#64748b', font: { size: 11 } }
                     },
                     x: {
                         grid: { color: 'rgba(255, 255, 255, 0.04)' },
