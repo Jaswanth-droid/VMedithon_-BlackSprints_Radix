@@ -1,63 +1,99 @@
-import * as tf from '@tensorflow/tfjs';
+import { getVoicePrintEngine, VoiceMatch } from './voicePrint';
+
 export interface IdentifiedPerson {
     name: string;
     relation: string;
 }
 
 /**
- * SpeakerDetector uses a combination of face identification data and optional
- * TensorFlow.js voice‑print analysis to determine who is currently speaking.
+ * Resolved speaker for a single utterance.
  *
- * For the MVP we implement a lightweight heuristic that switches to the
- * identified visitor when the face recognition reports a name different from the
- * primary (patient) speaker. If the identified person matches the primary
- * speaker, we treat the audio as coming from the patient. When no reliable
- * identification is available we return `null` indicating no speaker change.
+ * `label` is what the transcript shows ("You", "Visitor", or a specific known
+ * name). `isOwner` is true only when the voiceprint (or face) confidently
+ * matches the enrolled owner/patient.
+ */
+export interface SpeakerDecision {
+    label: 'You' | 'Visitor';
+    resolvedName: string;
+    isOwner: boolean;
+    isKnownVoice: boolean;
+    voiceScore: number;
+    source: 'voice' | 'face' | 'none';
+}
+
+/**
+ * SpeakerDetector decides who is currently speaking.
  *
- * The class is designed to be extensible – a future TensorFlow.js model can be
- * loaded in the constructor and used inside `detectSpeaker` without changing the
- * public API.
+ * Priority:
+ *  1. Voiceprint — the real signal. If the live audio confidently matches an
+ *     enrolled profile, we know exactly who it is (owner vs. a named person vs.
+ *     a stranger).
+ *  2. Face identification — a fallback for when no voice is enrolled yet or the
+ *     audio is inconclusive (e.g. background noise, very short utterance).
+ *
+ * The old implementation imported all of @tensorflow/tfjs but never used it and
+ * only compared face names. That dead import is gone; identification is now
+ * genuinely audio-first.
  */
 export class SpeakerDetector {
-    // Placeholder for a future voice‑print model instance.
-    // private model: any = null;
+    private engine = getVoicePrintEngine();
 
-    constructor() {
-        // In a full implementation we would asynchronously load a TensorFlow.js
-        // model here (e.g., a speaker‑verification model). For now we rely solely
-        // on the identifiedPerson information passed from the UI.
+    /** Raw voiceprint match for the current audio window. */
+    public matchVoice(): VoiceMatch {
+        return this.engine.identifyCurrent();
     }
 
     /**
-     * Detects the current speaker.
+     * Decide the speaker for an utterance.
      *
-     * @param transcript          The latest speech transcript (unused for the
-     *                            heuristic but kept for future model use).
-     * @param identifiedPerson    The person identified by the face‑recognition
-     *                            pipeline, or `null` if unknown.
-     * @param primarySpeakerName  The name of the primary user (patient). This is
-     *                            set once when the user is first identified.
-     * @returns 'You' | 'Visitor' | null – the speaker label or `null` if the
-     *          detector cannot decide.
+     * @param identifiedPerson  Person currently seen by face recognition, if any.
+     * @param primarySpeakerName  The enrolled owner/patient name (baseline "You").
      */
     public detectSpeaker(
-        transcript: string,
         identifiedPerson: IdentifiedPerson | null,
         primarySpeakerName: string | null
-    ): 'You' | 'Visitor' | null {
-        // If we have a confident identification that differs from the primary
-        // speaker, treat this as the visitor speaking.
-        if (identifiedPerson && primarySpeakerName) {
-            if (identifiedPerson.name !== primarySpeakerName) {
-                return 'Visitor';
-            }
-            // Identified person matches the primary user.
-            return 'You';
+    ): SpeakerDecision {
+        const match = this.engine.identifyCurrent();
+
+        // 1. Voiceprint wins when confident.
+        if (match.isKnown && match.profile) {
+            const p = match.profile;
+            const isOwner = p.isOwner ||
+                (primarySpeakerName != null && p.name.toLowerCase() === primarySpeakerName.toLowerCase());
+            return {
+                label: isOwner ? 'You' : 'Visitor',
+                resolvedName: isOwner ? (primarySpeakerName || p.name) : p.name,
+                isOwner,
+                isKnownVoice: true,
+                voiceScore: match.score,
+                source: 'voice',
+            };
         }
 
-        // Future enhancement: run the TensorFlow.js voice‑print model on the
-        // audio buffer and compare embeddings against stored profiles.
-        // For now we cannot make a decision.
-        return null;
+        // Voice heard but not enrolled → an unknown person is speaking.
+        // If we also have no face signal, treat as Visitor (someone other than owner).
+        // 2. Face-based fallback.
+        if (identifiedPerson && primarySpeakerName) {
+            const sameAsOwner = identifiedPerson.name.toLowerCase() === primarySpeakerName.toLowerCase();
+            return {
+                label: sameAsOwner ? 'You' : 'Visitor',
+                resolvedName: identifiedPerson.name,
+                isOwner: sameAsOwner,
+                isKnownVoice: false,
+                voiceScore: match.score,
+                source: 'face',
+            };
+        }
+
+        // 3. Nothing to go on — default to the owner speaking (most common case
+        //    for a single patient using the device), but mark it low-confidence.
+        return {
+            label: 'You',
+            resolvedName: primarySpeakerName || 'You',
+            isOwner: true,
+            isKnownVoice: false,
+            voiceScore: match.score,
+            source: 'none',
+        };
     }
 }

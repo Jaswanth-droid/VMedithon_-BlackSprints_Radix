@@ -41,7 +41,7 @@ const clients = { react: new Set(), dashboard: new Set() };
 const recentAnalyses = [];
 
 io.on('connection', (socket) => {
-    const clientType = socket.handshake.query.clientType || 'unknown';
+    const clientType = socket.handshake.query.clientType || socket.handshake.auth?.clientType || 'unknown';
     if (clients[clientType]) clients[clientType].add(socket.id);
     console.log(`[HUB:5000] ✅ Client connected: ${clientType} (${socket.id})`);
 
