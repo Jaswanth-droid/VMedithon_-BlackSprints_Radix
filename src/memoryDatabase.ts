@@ -1,6 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { ProgressionRecord, INITIAL_PROGRESSION_HISTORY } from './diseaseAnalytics';
 import { BehaviorIncident, INITIAL_BEHAVIOR_INCIDENTS } from './behaviorMentalHealth';
+import { cleanEventTitle } from './nlpExtractor';
 
 export interface CaregiverNote {
     id: string;
@@ -184,12 +185,62 @@ export async function initDatabase(): Promise<IDBPDatabase<MemoryDB>> {
 // ===== DATES OPERATIONS =====
 export async function addDate(date: ImportantDate): Promise<void> {
     const db = await initDatabase();
-    await db.add('dates', date);
+    const cleanTitle = cleanEventTitle(date.event);
+    if (!cleanTitle || cleanTitle === 'Event' || cleanTitle.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my)/i.test(cleanTitle)) {
+        return;
+    }
+
+    const existing = await db.getAll('dates');
+    const isDuplicate = existing.some(d => {
+        const dClean = cleanEventTitle(d.event);
+        const sameTitle = dClean.toLowerCase() === cleanTitle.toLowerCase();
+        const dDate = d.date ? new Date(d.date).toDateString() : '';
+        const newDate = date.date ? new Date(date.date).toDateString() : '';
+        return sameTitle && (dDate === newDate || !date.date);
+    });
+
+    if (isDuplicate) {
+        return;
+    }
+
+    const whenPart = date.event.includes(' — ') ? ` — ${date.event.split(' — ')[1].trim()}` : (date.event.includes(' on ') ? ` on ${date.event.split(' on ')[1].trim()}` : '');
+    await db.add('dates', {
+        ...date,
+        event: `${cleanTitle}${whenPart}`
+    });
 }
 
 export async function getAllDates(): Promise<ImportantDate[]> {
     const db = await initDatabase();
-    return db.getAll('dates');
+    const all = await db.getAll('dates');
+    // Filter out corrupted legacy noise entries and duplicate entries
+    const seen = new Set<string>();
+    const valid: ImportantDate[] = [];
+
+    for (const d of all) {
+        const clean = cleanEventTitle(d.event);
+        const isCorrupted = !clean || clean === 'Event' || clean.length < 2 ||
+            /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my\s+birthday)/i.test(clean);
+
+        if (isCorrupted) {
+            // Asynchronously delete corrupted record
+            db.delete('dates', d.id).catch(() => {});
+            continue;
+        }
+
+        const dateKey = d.date ? new Date(d.date).toDateString() : 'no-date';
+        const key = `${clean.toLowerCase()}|${dateKey}`;
+        if (seen.has(key)) {
+            // Asynchronously delete duplicate record
+            db.delete('dates', d.id).catch(() => {});
+            continue;
+        }
+
+        seen.add(key);
+        valid.push(d);
+    }
+
+    return valid;
 }
 
 export async function updateDate(date: ImportantDate): Promise<void> {

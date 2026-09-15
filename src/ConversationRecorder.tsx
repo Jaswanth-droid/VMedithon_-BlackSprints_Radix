@@ -225,25 +225,7 @@ TRANSCRIPT:
                 onConversationUpdate(summary, extractedVisitor || undefined);
             }
 
-            // Precise occasion extraction over the whole conversation (replaces the
-            // old noisy regex that flagged entire sentences).
-            const occasions = extractOccasions(convos.map(c => c.text).join('. '));
-            for (const occ of occasions) {
-                const icon = occ.type === 'reminder' ? '✅' : '📅';
-                onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
-                onOccasion?.(occ);
-                try {
-                    await addDate({
-                        id: generateId(),
-                        date: (occ.date || parseDateFromText(occ.when)).toISOString(),
-                        event: `${occ.title} — ${occ.when}`,
-                        type: occ.type === 'reminder' ? 'reminder' : 'appointment',
-                        createdAt: occ.date || new Date()
-                    } as any);
-                } catch (e) {
-                    console.error('[Occasion] save failed:', e);
-                }
-            }
+            // (Occasions are extracted per-utterance in handleSpeechResult to avoid re-duplication)
 
             // Transcript correction
             const transcriptMatch = response.match(/TRANSCRIPT:\s*(.+)$/s);
@@ -317,6 +299,13 @@ TRANSCRIPT:
             const icon = occ.type === 'reminder' ? '✅' : '📅';
             onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
             onOccasion?.(occ);
+            addDate({
+                id: generateId(),
+                date: (occ.date || parseDateFromText(occ.when)).toISOString(),
+                event: `${occ.title} — ${occ.when}`,
+                type: occ.type === 'reminder' ? 'reminder' : 'appointment',
+                createdAt: occ.date || new Date()
+            } as any).catch(() => {});
         });
 
         if (updated.length % 3 === 0 || updated.length === 1) {

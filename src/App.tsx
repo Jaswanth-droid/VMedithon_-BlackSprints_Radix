@@ -99,9 +99,20 @@ function App() {
                         scheduled: scheduledStr,
                         type: d.type === 'appointment' ? ('date' as const) : ('action' as const)
                     };
-                })
-                .filter(t => t.event && t.event !== 'Event' && t.event.length >= 2 && !/^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have)/i.test(t.event));
-            setTasks(mapped);
+                });
+
+            // Deduplicate tasks by event + scheduled
+            const seen = new Set<string>();
+            const unique = mapped.filter(t => {
+                if (!t.event || t.event === 'Event' || t.event.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|brings\s+you|is\s+my|actually)/i.test(t.event)) {
+                    return false;
+                }
+                const key = `${t.event.toLowerCase()}|${t.scheduled || ''}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            setTasks(unique);
         } catch (err) {
             console.error("Error loading tasks on mount:", err);
         }

@@ -35,7 +35,9 @@ const FILLER_PREFIXES = [
     /^(?:tomorrow|today|tonight|yesterday|next\s+week|next\s+month)\s+(?:i|we|you)?\s*(?:have|has|had|is|are|got)?\s*/i,
     /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|plan\s+to|planning\s+to)\s+(?:a|an|the|my|our|some)?\s+/i,
     /^(?:i'm|i\s+am|we're|we\s+are|they're|they\s+are)\s+(?:having|going\s+to|planning|attending|doing)\s+(?:a|an|the|my|our)?\s+/i,
-    /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's)\s+(?:a|an|the)?\s+/i,
+    /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's|that's|this\s+is)\s+(?:a|an|the)?\s+/i,
+    /^(?:is|was|will\s+be|are|were|be)\s+/i,
+    /^(?:my|your|his|her|our|their)\s+/i,
     /^(?:going\s+for|going\s+to|planning\s+for|attending|scheduled\s+for)\s+(?:a|an|the)?\s+/i,
     /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to|has\s+to|got\s+to|supposed\s+to)\s+/i,
     /^(?:i\s+want\s+to|i\s+need\s+to|we\s+need\s+to|you\s+need\s+to)\s+/i,
@@ -43,6 +45,8 @@ const FILLER_PREFIXES = [
 ];
 
 const RELATIVE_CLAUSES = [
+    /\s*,\s*(?:so|and\s+so|because|that's\s+why|which\s+is\s+why|since)\s+.*$/i,
+    /\s+(?:so|because)\s+(?:i|we|you)\s+.*$/i,
     /\s+(?:which|that)\s+(?:is|was|will\s+be|falls\s+on|takes\s+place\s+on).*$/i,
     /\s+(?:scheduled\s+for|set\s+for|planned\s+for).*$/i
 ];
