@@ -558,22 +558,36 @@ TRANSCRIPT:
 
             {/* Conversation log */}
             {conversations.length > 0 && (
-                <div className="space-y-2 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
-                    {conversations.slice(-5).map((entry, idx) => (
-                        <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                            className="text-xs p-2 rounded border"
-                            style={{
-                                background: (entry.speaker === 'You' || entry.speaker === patientName) ? 'rgba(196,181,253,0.18)' : 'rgba(167,243,208,0.18)',
-                                borderColor: (entry.speaker === 'You' || entry.speaker === patientName) ? 'rgba(167,139,250,0.35)' : 'rgba(110,231,183,0.4)'
-                            }}>
-                            <div className="flex items-center gap-2 mb-1">
-                                <Users size={10} />
-                                <span className="font-bold">{entry.speaker}</span>
-                                <span className="text-dim">{entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <p className="text-dim">"{entry.text}"</p>
-                        </motion.div>
-                    ))}
+                <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                    {conversations.slice(-8).map((entry, idx) => {
+                        const isUser = entry.speaker === 'You' || entry.speaker === patientName || entry.speaker.toLowerCase() === 'user';
+                        return (
+                            <motion.div
+                                key={idx}
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`text-xs p-2.5 rounded-xl border max-w-[85%] ${
+                                    isUser
+                                        ? 'self-end bg-purple-500/20 border-purple-400/40 rounded-tr-xs'
+                                        : 'self-start bg-emerald-500/15 border-emerald-400/35 rounded-tl-xs'
+                                }`}
+                                style={{
+                                    boxShadow: isUser ? '0 2px 10px rgba(167, 139, 250, 0.15)' : '0 2px 10px rgba(52, 211, 153, 0.12)'
+                                }}
+                            >
+                                <div className={`flex items-center gap-1.5 mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                    <Users size={11} className={isUser ? 'text-purple-300' : 'text-emerald-300'} />
+                                    <span className="font-bold text-[11px]" style={{ color: isUser ? '#c4b5fd' : '#6ee7b7' }}>
+                                        {entry.speaker}
+                                    </span>
+                                    <span className="text-[10px] text-dim ml-1">
+                                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <p className="text-white text-xs leading-relaxed font-normal">"{entry.text}"</p>
+                            </motion.div>
+                        );
+                    })}
                 </div>
             )}
 

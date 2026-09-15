@@ -103,6 +103,7 @@ export interface ConversationRecord {
     participants: string[];
     summary: string;
     fullTranscript: ConversationEntry[];
+    imageUrl?: string;
 }
 
 export interface PersonRecord {

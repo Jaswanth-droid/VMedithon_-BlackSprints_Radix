@@ -23,6 +23,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
     const [conversations, setConversations] = useState<ConversationRecord[]>([]);
     const [people, setPeople] = useState<PersonRecord[]>([]);
     const [activeTab, setActiveTab] = useState<TabType>('dates');
+    const [selectedConvo, setSelectedConvo] = useState<ConversationRecord | null>(null);
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [hoveredDay, setHoveredDay] = useState<number | null>(null);
 
@@ -333,15 +334,140 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 ))}
             </div>
 
-            {/* Main Content - Flex Layout with Active Spotlight Expansion & Background Blur */}
-            <div style={{
-                padding: '16px 32px',
-                display: 'flex',
-                gap: '20px',
-                height: 'calc(100vh - 210px)',
-                minHeight: '480px',
-                transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-            }}>
+            {/* Main Content: Either Selected Conversation Detail OR 4-Column Layout */}
+            {selectedConvo ? (
+                <div style={{
+                    maxWidth: '820px',
+                    margin: '0 auto',
+                    padding: '24px 20px 48px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px'
+                }}>
+                    {/* Header with Back Button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <button
+                            onClick={() => setSelectedConvo(null)}
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '40px', height: '40px', borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                color: 'white', cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+                        <div style={{
+                            width: '48px', height: '48px', borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: 'white', fontWeight: 'bold', fontSize: '18px', flexShrink: 0
+                        }}>
+                            U
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                                {selectedConvo.participants.join(' & ') || 'User'}
+                            </h2>
+                            <p style={{ fontSize: '13px', color: '#9ca3af', margin: '4px 0 0 0' }}>
+                                {selectedConvo.summary || 'You had a conversation with visitor.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+
+                    {/* Captured Scene Image (if any) */}
+                    {selectedConvo.imageUrl && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                                width: '100%', maxWidth: '640px', borderRadius: '16px', overflow: 'hidden',
+                                border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
+                            }}>
+                                <img
+                                    src={selectedConvo.imageUrl}
+                                    alt="Captured Scene"
+                                    style={{ width: '100%', height: 'auto', maxHeight: '360px', objectFit: 'cover', display: 'block' }}
+                                />
+                            </div>
+                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>Captured Scene</span>
+                        </div>
+                    )}
+
+                    {/* Speech Bubbles - Left for Visitor, Right for User */}
+                    <div style={{
+                        display: 'flex', flexDirection: 'column', gap: '14px',
+                        padding: '16px 8px', minHeight: '260px'
+                    }}>
+                        {(() => {
+                            const entries: { speaker: string; text: string; timestamp?: Date | string }[] = (selectedConvo.fullTranscript && selectedConvo.fullTranscript.length > 0)
+                                ? selectedConvo.fullTranscript
+                                : [
+                                    { speaker: 'User', text: 'Hi, what is your name?', timestamp: selectedConvo.timestamp },
+                                    { speaker: selectedConvo.participants.find(p => p.toLowerCase() !== 'user') || 'Visitor', text: `I am ${selectedConvo.participants.find(p => p.toLowerCase() !== 'user') || 'Visitor'}.`, timestamp: selectedConvo.timestamp }
+                                ];
+
+                            return entries.map((entry, idx) => {
+                                const isUser = entry.speaker.toLowerCase() === 'you' || entry.speaker.toLowerCase() === 'user';
+                                const timeStr = entry.timestamp ? formatTimeAgo(new Date(entry.timestamp)) : formatTimeAgo(new Date(selectedConvo.timestamp));
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignSelf: isUser ? 'flex-end' : 'flex-start',
+                                            alignItems: isUser ? 'flex-end' : 'flex-start',
+                                            maxWidth: '75%'
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                padding: '12px 18px',
+                                                borderRadius: isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
+                                                background: isUser
+                                                    ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35) 0%, rgba(236, 72, 153, 0.35) 100%)'
+                                                    : 'rgba(255, 255, 255, 0.08)',
+                                                border: isUser
+                                                    ? '1px solid rgba(236, 72, 153, 0.45)'
+                                                    : '1px solid rgba(255, 255, 255, 0.12)',
+                                                boxShadow: isUser
+                                                    ? '0 4px 15px rgba(236, 72, 153, 0.2)'
+                                                    : '0 4px 15px rgba(0, 0, 0, 0.2)',
+                                                color: 'white',
+                                                fontSize: '14px',
+                                                lineHeight: 1.5,
+                                                textAlign: 'left'
+                                            }}
+                                        >
+                                            <div style={{
+                                                fontSize: '11px', fontWeight: 'bold', marginBottom: '4px',
+                                                color: isUser ? '#f472b6' : '#6ee7b7'
+                                            }}>
+                                                {entry.speaker}
+                                            </div>
+                                            <p style={{ margin: 0, fontWeight: 500 }}>{entry.text}</p>
+                                        </div>
+                                        <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', padding: '0 4px' }}>
+                                            {timeStr}
+                                        </span>
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                </div>
+            ) : (
+                /* Main Content - Flex Layout with Active Spotlight Expansion & Background Blur */
+                <div style={{
+                    padding: '16px 32px',
+                    display: 'flex',
+                    gap: '20px',
+                    height: 'calc(100vh - 210px)',
+                    minHeight: '480px',
+                    transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
 
                 {/* Column 1: Calendar (dates) */}
                 <div
@@ -593,13 +719,17 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             </div>
                         ) : (
                             conversations.map((convo) => (
-                                <div key={convo.id} style={{
-                                    padding: '14px', borderRadius: '12px',
-                                    background: activeTab === 'conversations' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    display: 'flex', gap: '14px', alignItems: 'flex-start', cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                }}>
+                                <div
+                                    key={convo.id}
+                                    onClick={(e) => { e.stopPropagation(); setSelectedConvo(convo); }}
+                                    style={{
+                                        padding: '14px', borderRadius: '12px',
+                                        background: activeTab === 'conversations' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        display: 'flex', gap: '14px', alignItems: 'flex-start', cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
                                     {(() => {
                                         const participantName = convo.participants[0];
                                         const participant = people.find(p => p.name.trim().toLowerCase() === participantName.trim().toLowerCase());
@@ -826,6 +956,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 }
