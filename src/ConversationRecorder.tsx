@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Calendar, Users, Trash2 } from 'lucide-react';
 import { addDate, generateId } from './memoryDatabase';
+import { SpeakerDetector } from './speakerDetector';
 
 // Helper function to parse dates from text like "Feb 16", "tomorrow", "next Monday"
 function parseDateFromText(text: string): Date {
@@ -167,6 +168,9 @@ export default function ConversationRecorder({
     const lastSpeakerChangeTimeRef = useRef<number>(Date.now());
     const isManualSwitchRef = useRef<boolean>(false);
     const currentSpeakerRef = useRef<'You' | 'Visitor'>(currentSpeaker);
+
+    // Initialize speaker detector
+    const speakerDetector = new SpeakerDetector();
 
     // Sync ref with state
     useEffect(() => {
@@ -453,15 +457,10 @@ TRANSCRIPT:
         const now = Date.now();
         const timeSinceLastSpeech = now - lastSpeechTimeRef.current;
 
-        // Asymmetric Turn-Taking Heuristic:
-        // You -> Visitor: 1.2s (Quickly detect someone else starting)
-        // Visitor -> You: 4.0s (Very patient)
-        const pauseThreshold = currentSpeakerRef.current === 'You' ? 1200 : 4000;
-
-        if (timeSinceLastSpeech > pauseThreshold && conversations.length > 0) {
-            const nextSpeaker = currentSpeakerRef.current === 'You' ? 'Visitor' : 'You';
-            updateSpeaker(nextSpeaker);
-            isManualSwitchRef.current = false; // Turn-taking resets manual lock
+        // Use speaker detector to decide if speaker has changed
+        const detectedSpeaker = speakerDetector.detectSpeaker(transcript, identifiedPerson, primarySpeakerRef.current);
+        if (detectedSpeaker && detectedSpeaker !== currentSpeakerRef.current) {
+            updateSpeaker(detectedSpeaker);
         }
         lastSpeechTimeRef.current = now;
 

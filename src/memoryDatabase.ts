@@ -12,6 +12,30 @@ export interface CaregiverNote {
     note: string;
 }
 
+export interface MedicationSchedule {
+    id: string;
+    name: string;
+    dosage: string;
+    instructions: string;
+    scheduledTimes: string[]; // e.g. ['08:00', '20:00']
+    frequency: 'morning' | 'evening' | 'morning_evening' | 'bedtime' | 'custom';
+    reason: string;
+    prescribedBy?: string;
+    isActive: boolean;
+}
+
+export interface MedicationAdherenceLog {
+    id: string;
+    scheduleId: string;
+    medicationName: string;
+    dosage: string;
+    scheduledTime: string; // ISO date-time string
+    confirmedAt: string; // ISO date-time string
+    confirmedBy: 'Patient' | 'Caregiver';
+    status: 'taken_on_time' | 'taken_delayed' | 'missed' | 'escalated_to_caregiver';
+    notes?: string;
+}
+
 // Database schema definition
 interface MemoryDB extends DBSchema {
     dates: {
@@ -43,6 +67,16 @@ interface MemoryDB extends DBSchema {
         key: string;
         value: CaregiverNote;
         indexes: { 'by-category': string };
+    };
+    medicationSchedules: {
+        key: string;
+        value: MedicationSchedule;
+        indexes: { 'by-name': string };
+    };
+    medicationAdherence: {
+        key: string;
+        value: MedicationAdherenceLog;
+        indexes: { 'by-scheduleId': string; 'by-confirmedAt': string };
     };
 }
 
@@ -79,8 +113,8 @@ export interface PersonRecord {
     conversationContext: string;
 }
 
-const DB_NAME = 'mnemosync-memory-v2';
-const DB_VERSION = 2;
+const DB_NAME = 'mnemosync-memory-v3';
+const DB_VERSION = 3;
 
 let dbInstance: IDBPDatabase<MemoryDB> | null = null;
 
@@ -125,6 +159,19 @@ export async function initDatabase(): Promise<IDBPDatabase<MemoryDB>> {
             if (!db.objectStoreNames.contains('caregiverNotes')) {
                 const notesStore = db.createObjectStore('caregiverNotes', { keyPath: 'id' });
                 notesStore.createIndex('by-category', 'category');
+            }
+
+            // Medication Schedules store
+            if (!db.objectStoreNames.contains('medicationSchedules')) {
+                const medStore = db.createObjectStore('medicationSchedules', { keyPath: 'id' });
+                medStore.createIndex('by-name', 'name');
+            }
+
+            // Medication Adherence Logs store
+            if (!db.objectStoreNames.contains('medicationAdherence')) {
+                const adhStore = db.createObjectStore('medicationAdherence', { keyPath: 'id' });
+                adhStore.createIndex('by-scheduleId', 'scheduleId');
+                adhStore.createIndex('by-confirmedAt', 'confirmedAt');
             }
         },
     });
@@ -208,7 +255,6 @@ export async function getProgressionHistory(): Promise<ProgressionRecord[]> {
     const db = await initDatabase();
     let records = await db.getAll('progression');
     if (records.length === 0) {
-        // Seed initial 6-month clinical baseline
         for (const item of INITIAL_PROGRESSION_HISTORY) {
             await db.put('progression', item);
         }
@@ -240,7 +286,7 @@ export async function addBehaviorIncident(incident: BehaviorIncident): Promise<v
     await db.put('behavior', incident);
 }
 
-// ===== CAREGIVER NOTES & REPORTS =====
+// ===== CAREGIVER NOTES OPERATIONS =====
 export async function getCaregiverNotes(): Promise<CaregiverNote[]> {
     const db = await initDatabase();
     let notes = await db.getAll('caregiverNotes');
@@ -287,6 +333,141 @@ export async function addCaregiverNote(note: CaregiverNote): Promise<void> {
     await db.put('caregiverNotes', note);
 }
 
+// ===== MEDICATION SCHEDULES & ADHERENCE =====
+export const INITIAL_MEDICATION_SCHEDULES: MedicationSchedule[] = [
+    {
+        id: 'med-donepezil',
+        name: 'Donepezil (Aricept)',
+        dosage: '10mg',
+        instructions: 'Take 1 tablet daily in the morning with a glass of water and breakfast.',
+        scheduledTimes: ['08:00'],
+        frequency: 'morning',
+        reason: 'Cholinesterase inhibitor to enhance acetylcholine and preserve episodic memory.',
+        prescribedBy: 'Dr. Sarah Jenkins (Neurology)',
+        isActive: true
+    },
+    {
+        id: 'med-memantine',
+        name: 'Memantine (Namenda)',
+        dosage: '10mg',
+        instructions: 'Take 1 tablet twice daily: with morning breakfast and evening dinner.',
+        scheduledTimes: ['08:00', '20:00'],
+        frequency: 'morning_evening',
+        reason: 'NMDA receptor antagonist to protect neural cells from toxic glutamate accumulation.',
+        prescribedBy: 'Dr. Sarah Jenkins (Neurology)',
+        isActive: true
+    },
+    {
+        id: 'med-melatonin',
+        name: 'Melatonin',
+        dosage: '3mg',
+        instructions: 'Take 1 tablet 30 minutes before bedtime with dim room lighting.',
+        scheduledTimes: ['21:30'],
+        frequency: 'bedtime',
+        reason: 'Circadian neuro-hormone to reduce sundowning restlessness and nocturnal awakenings.',
+        prescribedBy: 'Dr. Sarah Jenkins (Neurology)',
+        isActive: true
+    }
+];
+
+export async function getMedicationSchedules(): Promise<MedicationSchedule[]> {
+    const db = await initDatabase();
+    let schedules = await db.getAll('medicationSchedules');
+    if (schedules.length === 0) {
+        for (const s of INITIAL_MEDICATION_SCHEDULES) {
+            await db.put('medicationSchedules', s);
+        }
+        schedules = await db.getAll('medicationSchedules');
+    }
+    return schedules;
+}
+
+export async function addMedicationSchedule(schedule: MedicationSchedule): Promise<void> {
+    const db = await initDatabase();
+    await db.put('medicationSchedules', schedule);
+}
+
+export async function updateMedicationSchedule(schedule: MedicationSchedule): Promise<void> {
+    const db = await initDatabase();
+    await db.put('medicationSchedules', schedule);
+}
+
+export async function getMedicationAdherenceLogs(): Promise<MedicationAdherenceLog[]> {
+    const db = await initDatabase();
+    let logs = await db.getAll('medicationAdherence');
+    if (logs.length === 0) {
+        // Seed realistic 7-day adherence history
+        const now = Date.now();
+        const seedLogs: MedicationAdherenceLog[] = [];
+        
+        for (let i = 6; i >= 1; i--) {
+            const dayTimestamp = now - i * 24 * 60 * 60 * 1000;
+            const dateStr = new Date(dayTimestamp).toISOString().split('T')[0];
+
+            // Donepezil morning
+            seedLogs.push({
+                id: `log-don-${i}`,
+                scheduleId: 'med-donepezil',
+                medicationName: 'Donepezil (Aricept)',
+                dosage: '10mg',
+                scheduledTime: `${dateStr}T08:00:00.000Z`,
+                confirmedAt: `${dateStr}T08:07:00.000Z`,
+                confirmedBy: i % 2 === 0 ? 'Patient' : 'Caregiver',
+                status: 'taken_on_time',
+                notes: 'Taken with morning oatmeal.'
+            });
+
+            // Memantine morning
+            seedLogs.push({
+                id: `log-mem-am-${i}`,
+                scheduleId: 'med-memantine',
+                medicationName: 'Memantine (Namenda)',
+                dosage: '10mg',
+                scheduledTime: `${dateStr}T08:00:00.000Z`,
+                confirmedAt: `${dateStr}T08:08:00.000Z`,
+                confirmedBy: 'Patient',
+                status: 'taken_on_time'
+            });
+
+            // Memantine evening
+            seedLogs.push({
+                id: `log-mem-pm-${i}`,
+                scheduleId: 'med-memantine',
+                medicationName: 'Memantine (Namenda)',
+                dosage: '10mg',
+                scheduledTime: `${dateStr}T20:00:00.000Z`,
+                confirmedAt: `${dateStr}T20:18:00.000Z`,
+                confirmedBy: 'Caregiver',
+                status: i === 3 ? 'taken_delayed' : 'taken_on_time'
+            });
+
+            // Melatonin bedtime
+            seedLogs.push({
+                id: `log-mel-${i}`,
+                scheduleId: 'med-melatonin',
+                medicationName: 'Melatonin',
+                dosage: '3mg',
+                scheduledTime: `${dateStr}T21:30:00.000Z`,
+                confirmedAt: `${dateStr}T21:35:00.000Z`,
+                confirmedBy: 'Patient',
+                status: 'taken_on_time'
+            });
+        }
+
+        for (const log of seedLogs) {
+            await db.put('medicationAdherence', log);
+        }
+        logs = await db.getAll('medicationAdherence');
+    }
+
+    return logs.sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime());
+}
+
+export async function addMedicationAdherenceLog(log: MedicationAdherenceLog): Promise<void> {
+    const db = await initDatabase();
+    await db.put('medicationAdherence', log);
+}
+
 // ===== UTILITY FUNCTIONS =====
 export function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -300,4 +481,6 @@ export async function clearAllData(): Promise<void> {
     await db.clear('progression');
     await db.clear('behavior');
     await db.clear('caregiverNotes');
+    await db.clear('medicationSchedules');
+    await db.clear('medicationAdherence');
 }

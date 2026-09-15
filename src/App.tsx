@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { connectHub, emitFaceDetected, emitConversationEnded, onCognitiveAlert, CognitiveAlert } from './socketClient';
 import { 
     Brain, 
     User, 
@@ -19,6 +20,7 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Modal from './Modal';
 import Webcam from 'react-webcam';
 import { getGeminiModel, analyzeScene } from './gemini';
 import IntroSequence from './IntroSequence';
@@ -29,11 +31,12 @@ import MemoryDashboard from './MemoryDashboard';
 import DiseaseProgressionAnalysis from './DiseaseProgressionAnalysis';
 import BehaviorAnalysis from './BehaviorAnalysis';
 import CaregiverPortal from './CaregiverPortal';
+import MedicationReminderUI from './MedicationReminderUI';
 import { getProgressionHistory, getBehaviorIncidents } from './memoryDatabase';
 import { ProgressionRecord } from './diseaseAnalytics';
 import { BehaviorIncident } from './behaviorMentalHealth';
 
-type ActiveViewType = 'vision' | 'progression' | 'behavior' | 'caregiver';
+type ActiveViewType = 'vision' | 'progression' | 'behavior' | 'caregiver' | 'medication';
 
 function App() {
     const [status, setStatus] = useState('Standby');
@@ -65,8 +68,12 @@ function App() {
 
     // Navigation & New Modules State
     const [activeView, setActiveView] = useState<ActiveViewType>('vision');
+    const [showMedicationModal, setShowMedicationModal] = useState(false);
     const [progressionRecords, setProgressionRecords] = useState<ProgressionRecord[]>([]);
     const [behaviorLogs, setBehaviorLogs] = useState<BehaviorIncident[]>([]);
+
+    // Cognitive alert from CBAE module
+    const [cognitiveAlert, setCognitiveAlert] = useState<CognitiveAlert | null>(null);
 
     // Cinematic Intro States
     const [introComplete, setIntroComplete] = useState(false);
@@ -74,6 +81,31 @@ function App() {
     useEffect(() => {
         historyRef.current = history;
     }, [history]);
+
+    // Connect to Mnemosync Hub on mount and subscribe to cognitive alerts
+    useEffect(() => {
+        connectHub();
+        const unsub = onCognitiveAlert((alert) => {
+            console.log('[App] cognitive_alert received:', alert);
+            setCognitiveAlert(alert);
+            // Auto-dismiss low-severity after 30 s
+            if (alert.severity === 'low') {
+                setTimeout(() => setCognitiveAlert(null), 30000);
+            }
+        });
+        return unsub;
+    }, []);
+
+    // Emit face_detected to hub whenever a person is identified
+    useEffect(() => {
+        if (identifiedPerson) {
+            emitFaceDetected({
+                name: identifiedPerson.name,
+                relation: identifiedPerson.relation,
+                summary: identifiedPerson.summary,
+            });
+        }
+    }, [identifiedPerson]);
 
     const webcamRef = useRef<Webcam>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -356,6 +388,16 @@ function App() {
                             }`}
                         >
                             <Shield size={14} /> Caregiver Reports
+                        </button>
+                        <button
+                            onClick={() => { setActiveView('medication'); setShowMedicationModal(true); }}
+                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
+                                activeView === 'medication'
+                                    ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg font-bold'
+                                    : 'text-dim hover:text-white'
+                            }`}
+                        >
+                            <Key size={14} /> Medication Reminders
                         </button>
                     </nav>
 
@@ -660,6 +702,13 @@ function App() {
                                             if (visitorInfo) {
                                                 setLastVisitorInfo(visitorInfo);
                                             }
+                                            // Relay full transcript to CBAE via hub
+                                            emitConversationEnded({
+                                                transcript: summary,
+                                                participants: visitorInfo
+                                                    ? ['User', visitorInfo.name]
+                                                    : ['User'],
+                                            });
                                         }}
                                         patientName="User"
                                     />
@@ -762,6 +811,12 @@ function App() {
                         />
                     </div>
                 )}
+                {/* View 5: MEDICATION REMINDER */}
+                {showMedicationModal && (
+                    <Modal onClose={() => setShowMedicationModal(false)} title="Medication Reminders">
+                        <MedicationReminderUI />
+                    </Modal>
+                )}
             </div>
 
             {/* Memory Vault Modal */}
@@ -769,6 +824,59 @@ function App() {
                 isOpen={isDashboardOpen}
                 onClose={() => setIsDashboardOpen(false)}
             />
+
+            {/* ── Cognitive Alert Banner (from CBAE module) ────────────── */}
+            <AnimatePresence>
+                {cognitiveAlert && (
+                    <motion.div
+                        initial={{ y: -80, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -80, opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            top: '1rem',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 9999,
+                            minWidth: '360px',
+                            maxWidth: '560px',
+                            padding: '1rem 1.25rem',
+                            borderRadius: '1rem',
+                            background: cognitiveAlert.severity === 'high'
+                                ? 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.15))'
+                                : 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.15))',
+                            border: `1px solid ${
+                                cognitiveAlert.severity === 'high' ? 'rgba(239,68,68,0.5)' : 'rgba(251,191,36,0.5)'
+                            }`,
+                            backdropFilter: 'blur(16px)',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.75rem',
+                        }}
+                    >
+                        <AlertCircle
+                            size={22}
+                            style={{ color: cognitiveAlert.severity === 'high' ? '#f87171' : '#fbbf24', flexShrink: 0, marginTop: 2 }}
+                        />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'white', marginBottom: '0.2rem' }}>
+                                🧠 Cognitive Alert — {cognitiveAlert.severity.toUpperCase()}
+                            </p>
+                            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.75)' }}>
+                                {cognitiveAlert.reason}
+                            </p>
+                            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', marginTop: '0.25rem' }}>
+                                Detected at {new Date(cognitiveAlert.timestamp).toLocaleTimeString()}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setCognitiveAlert(null)}
+                            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
+                        >✕</button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 }
