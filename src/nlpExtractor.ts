@@ -23,31 +23,52 @@ const MONTH_NAMES = [
 ];
 
 /**
- * Clean leading conversational filler phrases, pronouns, and verbs
- * e.g. "I have a Birthday" -> "Birthday"
+ * Clean leading conversational filler phrases, pronouns, verbs, questions, and dates
+ * e.g. "Tomorrow Have" -> "Event"
+ * "you here? actually" -> filtered / "Event"
+ * "So actually tomorrow I have a hackathon which is 16th September" -> "Hackathon"
+ * "I have a Birthday" -> "Birthday"
  * "We are going to a dinner" -> "Dinner"
  * "There is a meeting" -> "Meeting"
  */
 export function cleanEventTitle(raw: string): string {
+    if (!raw || !raw.trim()) return 'Event';
     let clean = raw.trim();
 
-    // Remove markdown or icon prefixes
-    clean = clean.replace(/^[📅✅⏰•\-\*\s]+/, '');
+    // 1. Remove markdown, icons, emojis, bullets
+    clean = clean.replace(/^[📅✅⏰•\-\*\s◆◇💡🔔📌🎯]+/, '');
 
-    // List of conversational prefixes to strip
+    // 2. If title contains a separator like ' — ' or ' – ' or ' on ' or ' at '
+    if (clean.includes(' — ')) {
+        clean = clean.split(' — ')[0].trim();
+    } else if (clean.includes(' – ')) {
+        clean = clean.split(' – ')[0].trim();
+    }
+
+    // 3. Remove relative clause tails (e.g. "which is 16th September", "that is on Friday")
+    clean = clean.replace(/\s+(?:which|that)\s+(?:is|was|will\s+be|falls\s+on|takes\s+place\s+on).*$/i, '');
+    clean = clean.replace(/\s+(?:scheduled\s+for|set\s+for|planned\s+for).*$/i, '');
+
+    // 4. List of conversational prefixes and conversational question phrases to strip
     const fillerPatterns = [
+        /^(?:hi|hello|hey|good\s+morning|good\s+afternoon|good\s+evening)[\s,?.!-]+/i,
+        /^(?:what|who|how|where|when|why)\s+(?:brings\s+you\s+here|is\s+your\s+name|are\s+you|did\s+you\s+say|is\s+this|is\s+that)\??[\s,.-]*/i,
+        /^(?:so\s+)?(?:actually\s+)?(?:well\s+)?(?:by\s+the\s+way\s+)?(?:you\s+know\s+)?(?:i\s+think\s+)?/i,
+        /^(?:tomorrow|today|tonight|yesterday|next\s+week|next\s+month)\s+(?:i|we|you)?\s*(?:have|has|had|is|are|got)?\s*/i,
         /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got)\s+(?:a|an|the|my|our|some)?\s+/i,
         /^(?:i'm|i\s+am|we're|we\s+are|they're|they\s+are)\s+(?:having|going\s+to|planning|attending)\s+(?:a|an|the|my|our)?\s+/i,
         /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's)\s+(?:a|an|the)?\s+/i,
         /^(?:going\s+for|going\s+to|planning\s+for|attending|scheduled\s+for)\s+(?:a|an|the)?\s+/i,
-        /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to)\s+/i,
+        /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to|got\s+to)\s+/i,
         /^(?:i\s+want\s+to|i\s+need\s+to|we\s+need\s+to|you\s+need\s+to)\s+/i,
         /^(?:a|an|the)\s+/i
     ];
 
     let changed = true;
-    while (changed) {
+    let guard = 0;
+    while (changed && guard < 10) {
         changed = false;
+        guard++;
         for (const pattern of fillerPatterns) {
             if (pattern.test(clean)) {
                 clean = clean.replace(pattern, '').trim();
@@ -56,12 +77,40 @@ export function cleanEventTitle(raw: string): string {
         }
     }
 
-    // Remove trailing prepositions if left hanging (e.g. "Birthday on" -> "Birthday")
-    clean = clean.replace(/\s+(?:on|at|by|for|this|during|in|from)\s*$/i, '').trim();
+    // 5. Remove trailing prepositions & relative words if left hanging
+    clean = clean.replace(/\s+(?:on|at|by|for|this|during|in|from|which|that|is|to|a|an|the)$/i, '').trim();
+    clean = clean.replace(/^[\s,?.!-]+|[\s,?.!-]+$/g, '').trim();
 
-    // Capitalize first letter
+    // 6. Use Compromise NLP to isolate noun/action entity if messy
+    try {
+        if (clean.length > 0) {
+            const doc = nlp(clean) as any;
+            const nouns = doc.nouns ? doc.nouns().out('array') : [];
+            if (nouns.length === 1 && clean.split(/\s+/).length > 3 && !/^(?:take|call|buy|visit|meet|attend|submit|prepare)\b/i.test(clean)) {
+                const singleNoun = nouns[0].replace(/^(?:a|an|the|my|our)\s+/i, '').trim();
+                if (singleNoun.length >= 2) {
+                    clean = singleNoun;
+                }
+            }
+        }
+    } catch {
+        // Fallback to regex clean
+    }
+
+    // 7. Strip single question/pronoun words
+    if (/^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today)$/i.test(clean)) {
+        return 'Event';
+    }
+
+    // 8. Capitalize into Title Case
     if (clean.length > 0) {
-        clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+        clean = clean
+            .split(/\s+/)
+            .map((w, i) => {
+                if (i !== 0 && /^(?:to|the|a|an|for|on|at|of|in|with|and)$/i.test(w)) return w.toLowerCase();
+                return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+            })
+            .join(' ');
     }
 
     return clean || 'Event';

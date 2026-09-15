@@ -1,17 +1,9 @@
-/**
- * Occasion extraction for Mnemosync.
- *
- * The previous approach grabbed a broad slice of the sentence around a date word
- * (e.g. "I need to go to the doctor appointment on Friday" became a long,
- * noisy task string). This module instead isolates a *concise occasion*: a short
- * event noun phrase plus the specific time it should happen, so the reminder the
- * patient sees reads like "Doctor appointment — Friday" rather than a whole
- * sentence.
- */
+import nlp from 'compromise';
+import { cleanEventTitle } from './nlpExtractor';
 
 export interface Occasion {
-    title: string;                       // concise event, e.g. "Doctor appointment"
-    when: string;                        // normalised temporal phrase, e.g. "on Friday"
+    title: string;                       // concise event, e.g. "Hackathon", "Doctor appointment"
+    when: string;                        // normalised temporal phrase, e.g. "September 16th", "on Friday"
     date?: Date;                         // resolved date when possible
     type: 'appointment' | 'reminder' | 'event';
 }
@@ -26,7 +18,7 @@ const TEMPORAL_RE = new RegExp(
     `\\b(?:day\\s+after\\s+tomorrow|tomorrow|today|tonight)\\b` +
     `|\\bthis\\s+(?:morning|afternoon|evening|week|month|weekend|${DAYS})\\b` +
     `|\\bnext\\s+(?:week|month|weekend|${DAYS})\\b` +
-    `|\\b(?:on|by|before|after|until|at)\\s+(?:${DAYS})\\b` +
+    `|\\b(?:on|by|before|after|until|at)\\s+(?:the\\s+)?(?:${DAYS})\\b` +
     `|\\b(?:on|by|before|after|until)?\\s*(?:${MONTHS})\\s+\\d{1,2}(?:st|nd|rd|th)?\\b` +
     `|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})\\b` +
     `|\\b(?:${DAYS})\\b` +
@@ -36,26 +28,24 @@ const TEMPORAL_RE = new RegExp(
     'gi'
 );
 
-// Leading words/phrases that are conversational filler, not the event itself.
-const FILLER_LEAD = new RegExp(
-    `^(?:` +
-    `i\\s+(?:need|have|want|would|will|am|m|'\w+|gotta|must|should)` +
-    `|we\\s+(?:need|have|will|are|'\w+|should|must|can)` +
-    `|you\\s+(?:need|have|should|must|can|will)` +
-    `|they\\s+(?:need|have|will|are)` +
-    `|remind\\s+me\\s+to|remember\\s+to|don'?t\\s+forget\\s+to|do\\s+not\\s+forget\\s+to` +
-    `|make\\s+sure\\s+to|need\\s+to|have\\s+to|has\\s+to|got\\s+to|gotta` +
-    `|going\\s+to|gonna|plan(?:ning)?\\s+to|supposed\\s+to|about\\s+to` +
-    `|there\\s+(?:is|are|'\''s)|it\\s+is|its|i\\s+think|let'?s` +
-    `|and|then|also|so|but|the|a|an|to|my|me|for|that|of` +
-    `)\\b[\\s,]*`,
-    'i'
-);
+const FILLER_PREFIXES = [
+    /^(?:hi|hello|hey|good\s+morning|good\s+afternoon|good\s+evening)[\s,?.!-]+/i,
+    /^(?:what|who|how|where|when|why)\s+(?:brings\s+you\s+here|is\s+your\s+name|are\s+you|did\s+you\s+say|is\s+this|is\s+that)\??[\s,.-]*/i,
+    /^(?:so\s+)?(?:actually\s+)?(?:well\s+)?(?:by\s+the\s+way\s+)?(?:you\s+know\s+)?(?:i\s+think\s+)?/i,
+    /^(?:tomorrow|today|tonight|yesterday|next\s+week|next\s+month)\s+(?:i|we|you)?\s*(?:have|has|had|is|are|got)?\s*/i,
+    /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|plan\s+to|planning\s+to)\s+(?:a|an|the|my|our|some)?\s+/i,
+    /^(?:i'm|i\s+am|we're|we\s+are|they're|they\s+are)\s+(?:having|going\s+to|planning|attending|doing)\s+(?:a|an|the|my|our)?\s+/i,
+    /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's)\s+(?:a|an|the)?\s+/i,
+    /^(?:going\s+for|going\s+to|planning\s+for|attending|scheduled\s+for)\s+(?:a|an|the)?\s+/i,
+    /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to|has\s+to|got\s+to|supposed\s+to)\s+/i,
+    /^(?:i\s+want\s+to|i\s+need\s+to|we\s+need\s+to|you\s+need\s+to)\s+/i,
+    /^(?:a|an|the)\s+/i
+];
 
-// Trailing connective prepositions left dangling after removing the time phrase.
-const TRAILING_PREP = /\b(?:on|at|by|for|this|next|in|during|until|before|after|to|a|an|the|my)\b[\s,]*$/i;
-
-const STOPWORD_ONLY = /^(?:to|the|a|an|for|on|at|my|me|i|we|it|is|am|are|and|then|go|going|do|some|thing|something|stuff)$/i;
+const RELATIVE_CLAUSES = [
+    /\s+(?:which|that)\s+(?:is|was|will\s+be|falls\s+on|takes\s+place\s+on).*$/i,
+    /\s+(?:scheduled\s+for|set\s+for|planned\s+for).*$/i
+];
 
 function titleCase(phrase: string): string {
     return phrase
@@ -67,23 +57,7 @@ function titleCase(phrase: string): string {
         .join(' ');
 }
 
-function stripFiller(phrase: string): string {
-    let out = phrase.trim();
-    let changed = true;
-    let guard = 0;
-    while (changed && guard < 8) {
-        changed = false;
-        guard++;
-        const next = out.replace(FILLER_LEAD, '').replace(TRAILING_PREP, '');
-        if (next !== out) {
-            out = next.trim();
-            changed = true;
-        }
-    }
-    return out.replace(/\s{2,}/g, ' ').replace(/^[\s,.-]+|[\s,.-]+$/g, '').trim();
-}
-
-/** Parse a resolved Date from a natural phrase (moved here so it's shared). */
+/** Parse a resolved Date from a natural phrase */
 export function parseDateFromText(text: string): Date {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -157,46 +131,101 @@ function normaliseWhen(raw: string): string {
 }
 
 /**
- * Extract concise occasions from a transcript/sentence.
- * Returns [] when there is no actionable time reference.
+ * Extract concise occasions from conversational transcript/utterance.
+ * Converts "So actually tomorrow I have a hackathon which is 16th September" -> "Hackathon" on "September 16th"
  */
 export function extractOccasions(input: string): Occasion[] {
     if (!input || !input.trim()) return [];
     const results: Occasion[] = [];
     const seen = new Set<string>();
 
+    // Split compound utterances into clean clauses
     const clauses = input
-        .split(/[,;.\n!?]|\band\b|\bthen\b|\balso\b|\bbut\b/i)
+        .split(/(?<=[.?!])\s+|[;.\n!?]|\band\s+also\b|\band\s+then\b|\bplus\b/i)
         .map(c => c.trim())
-        .filter(Boolean);
+        .filter(c => c.length > 2);
 
     for (const clause of clauses) {
+        // Skip pure greetings or conversational questions
+        if (/^(?:hi|hello|hey|good\s+morning|how\s+are\s+you|what\s+brings\s+you\s+here|what\s+is\s+your\s+name)[\s?.,!]*$/i.test(clause)) {
+            continue;
+        }
+
+        // Find all temporal matches in the clause
         TEMPORAL_RE.lastIndex = 0;
+        const matches: { text: string; index: number }[] = [];
         let m: RegExpExecArray | null;
         while ((m = TEMPORAL_RE.exec(clause)) !== null) {
-            const whenRaw = m[0];
-            // Remove the time phrase; the remaining words are the event candidate.
-            const withoutTime = (clause.slice(0, m.index) + ' ' + clause.slice(m.index + whenRaw.length))
-                .replace(/\s{2,}/g, ' ');
-            const eventPhrase = stripFiller(withoutTime);
-            if (!eventPhrase || STOPWORD_ONLY.test(eventPhrase)) continue;
-
-            // Cap the event phrase to a readable length (max ~6 words).
-            const words = eventPhrase.split(/\s+/).slice(0, 6).join(' ');
-            const title = titleCase(words);
-            const when = normaliseWhen(whenRaw);
-            const key = `${title}|${when}`.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-
-            results.push({
-                title,
-                when,
-                date: parseDateFromText(when),
-                type: classify(clause),
-            });
+            matches.push({ text: m[0], index: m.index });
         }
+
+        if (matches.length === 0) continue;
+
+        // Choose the most specific date when multiple exist (e.g. "16th September" over "tomorrow")
+        let primaryWhen = matches[0].text;
+        for (const match of matches) {
+            if (new RegExp(MONTHS, 'i').test(match.text)) {
+                primaryWhen = match.text;
+                break;
+            }
+        }
+
+        // Remove relative clause tails (e.g. "which is 16th September")
+        let candidate = clause;
+        for (const rel of RELATIVE_CLAUSES) {
+            candidate = candidate.replace(rel, ' ');
+        }
+
+        // Remove all temporal phrases from candidate to isolate the event noun
+        for (const match of matches) {
+            candidate = candidate.replace(new RegExp(`\\b${match.text}\\b`, 'gi'), ' ');
+        }
+
+        // Remove conversational filler prefixes repeatedly
+        let changed = true;
+        let guard = 0;
+        while (changed && guard < 8) {
+            changed = false;
+            guard++;
+            for (const pat of FILLER_PREFIXES) {
+                if (pat.test(candidate.trim())) {
+                    candidate = candidate.trim().replace(pat, '');
+                    changed = true;
+                }
+            }
+        }
+
+        // Clean trailing and leading punctuation/prepositions
+        candidate = candidate.replace(/\s+(?:on|at|by|for|this|next|in|during|is|to|a|an|the|which|that)$/i, '').trim();
+        candidate = candidate.replace(/^[\s,?.!-]+|[\s,?.!-]+$/g, '').trim();
+
+        // Use cleanEventTitle & NLP entity refinement
+        let eventName = cleanEventTitle(candidate);
+
+        // Filter out residual garbage words
+        if (
+            !eventName ||
+            eventName === 'Event' ||
+            eventName.length < 2 ||
+            /^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today)$/i.test(eventName)
+        ) {
+            continue;
+        }
+
+        const title = titleCase(eventName);
+        const when = normaliseWhen(primaryWhen);
+        const key = `${title}|${when}`.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        results.push({
+            title,
+            when,
+            date: parseDateFromText(when),
+            type: classify(clause),
+        });
     }
 
     return results;
 }
+

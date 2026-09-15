@@ -55,24 +55,52 @@ function App() {
     const [history, setHistory] = useState('');
     const historyRef = useRef(history);
     const [memoryLog, setMemoryLog] = useState<{ time: string; event: string }[]>([]);
-    const [tasks, setTasks] = useState<{ id: string; time: string; event: string; type: 'date' | 'action' }[]>([]);
+    const [tasks, setTasks] = useState<{ id: string; time: string; event: string; scheduled?: string; type: 'date' | 'action' }[]>([]);
 
     const loadTasks = async () => {
         try {
             const datesData = await getAllDates();
-            const mapped = datesData.map(d => {
-                const parsedDate = new Date(d.createdAt || d.date);
-                const timeStr = !isNaN(parsedDate.getTime())
-                    ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : 'Today';
-                const cleanedEvent = cleanEventTitle(d.event);
-                return {
-                    id: d.id,
-                    time: timeStr,
-                    event: cleanedEvent,
-                    type: d.type === 'appointment' ? ('date' as const) : ('action' as const)
-                };
-            });
+            const mapped = datesData
+                .map(d => {
+                    const parsedDate = new Date(d.createdAt || d.date);
+                    const timeStr = !isNaN(parsedDate.getTime())
+                        ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : 'Today';
+
+                    let fullEvent = d.event || '';
+                    let title = cleanEventTitle(fullEvent);
+                    let scheduledStr = '';
+
+                    if (fullEvent.includes(' — ')) {
+                        const parts = fullEvent.split(' — ');
+                        title = cleanEventTitle(parts[0]);
+                        scheduledStr = parts[1]?.trim() || '';
+                    } else if (fullEvent.includes(' – ')) {
+                        const parts = fullEvent.split(' – ');
+                        title = cleanEventTitle(parts[0]);
+                        scheduledStr = parts[1]?.trim() || '';
+                    } else if (fullEvent.includes(' on ')) {
+                        const parts = fullEvent.split(' on ');
+                        title = cleanEventTitle(parts[0]);
+                        scheduledStr = parts[1]?.trim() || '';
+                    }
+
+                    if (!scheduledStr && d.date) {
+                        const dt = new Date(d.date);
+                        if (!isNaN(dt.getTime())) {
+                            scheduledStr = dt.toLocaleDateString([], { month: 'long', day: 'numeric' });
+                        }
+                    }
+
+                    return {
+                        id: d.id,
+                        time: timeStr,
+                        event: title,
+                        scheduled: scheduledStr,
+                        type: d.type === 'appointment' ? ('date' as const) : ('action' as const)
+                    };
+                })
+                .filter(t => t.event && t.event !== 'Event' && t.event.length >= 2 && !/^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have)/i.test(t.event));
             setTasks(mapped);
         } catch (err) {
             console.error("Error loading tasks on mount:", err);
@@ -425,9 +453,9 @@ function App() {
                                             >
                                                 <div className="nudge-dot" style={{ background: task.type === 'action' ? '#ef4444' : '#34d399' }} />
                                                 <div className="flex-1">
-                                                    <p className="font-medium text-sm text-balance">{task.event.split(' on ')[0]}</p>
+                                                    <p className="font-medium text-sm text-balance">◆ {task.event}</p>
                                                     <p className="text-xs text-dim">
-                                                        {task.event.includes(' on ') ? `Scheduled: ${task.event.split(' on ')[1]}` : `Added at ${task.time}`}
+                                                        {task.scheduled ? `Scheduled: ${task.scheduled}` : `Added at ${task.time}`}
                                                     </p>
                                                 </div>
                                                 <button
@@ -669,23 +697,43 @@ function App() {
                                         primaryModel={primaryModel}
                                         backupModel={backupModel}
                                         identifiedPerson={identifiedPerson}
-                                        onDateDetected={(event) => {
+                                        onDateDetected={(eventStr) => {
                                             const now = new Date();
                                             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                            const type = event.includes('📅') ? 'date' : 'action';
-                                            const cleanEvent = cleanEventTitle(event);
+                                            const type = eventStr.includes('📅') ? 'date' : 'action';
+
+                                            let title = cleanEventTitle(eventStr);
+                                            let scheduledStr = '';
+                                            if (eventStr.includes(' — ')) {
+                                                const parts = eventStr.split(' — ');
+                                                title = cleanEventTitle(parts[0]);
+                                                scheduledStr = parts[1]?.trim() || '';
+                                            } else if (eventStr.includes(' – ')) {
+                                                const parts = eventStr.split(' – ');
+                                                title = cleanEventTitle(parts[0]);
+                                                scheduledStr = parts[1]?.trim() || '';
+                                            } else if (eventStr.includes(' on ')) {
+                                                const parts = eventStr.split(' on ');
+                                                title = cleanEventTitle(parts[0]);
+                                                scheduledStr = parts[1]?.trim() || '';
+                                            }
+
+                                            if (!title || title === 'Event' || title.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually)/i.test(title)) {
+                                                return;
+                                            }
 
                                             setTasks(prev => {
-                                                if (prev.some(t => t.event.toLowerCase() === cleanEvent.toLowerCase())) return prev;
+                                                if (prev.some(t => t.event.toLowerCase() === title.toLowerCase())) return prev;
                                                 return [...prev, {
                                                     id: Math.random().toString(36).substr(2, 9),
                                                     time: timeStr,
-                                                    event: cleanEvent,
+                                                    event: title,
+                                                    scheduled: scheduledStr,
                                                     type
                                                 }];
                                             });
 
-                                            setMemoryLog(prev => [{ time: timeStr, event: cleanEvent }, ...prev].slice(0, 10));
+                                            setMemoryLog(prev => [{ time: timeStr, event: `${title}${scheduledStr ? ' (' + scheduledStr + ')' : ''}` }, ...prev].slice(0, 10));
                                         }}
                                         onConversationUpdate={(summary, visitorInfo) => {
                                             setHistory(prev => `${prev}\n[Conversation] ${summary}`);
