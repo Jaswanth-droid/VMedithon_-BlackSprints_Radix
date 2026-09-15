@@ -185,6 +185,7 @@ Give a gentle, caring summary. Respond EXACTLY in this format:
 VISITOR: [visitor name and relationship, or "Unknown visitor"]
 SUMMARY: [warm 1-2 sentence summary spoken directly to ${patientName}]
 DATES: [specific occasions/appointments with their time, or "None"]
+EVENT_DETAILS: [any specific extra details mentioned about the event like DJ party, music, venue, food, attendees, time, or "None"]
 ACTIONS: [promises or tasks, or "None"]
 TRANSCRIPT:
 [Speaker]: "corrected text"`;
@@ -208,6 +209,7 @@ TRANSCRIPT:
 
             const visitorMatch = response.match(/VISITOR:\s*(.+?)(?=SUMMARY:|$)/s);
             const summaryMatch = response.match(/SUMMARY:\s*(.+?)(?=DATES:|$)/s);
+            const detailsMatch = response.match(/EVENT_DETAILS:\s*(.+?)(?=ACTIONS:|$)/s);
 
             let extractedVisitor = visitorInfo;
             if (visitorMatch) {
@@ -224,6 +226,13 @@ TRANSCRIPT:
                 const summary = summaryMatch[1].trim();
                 setLastSummary(summary);
                 onConversationUpdate(summary, extractedVisitor || undefined);
+            }
+
+            if (detailsMatch) {
+                const detailsText = detailsMatch[1].trim();
+                if (detailsText && !detailsText.toLowerCase().includes('none')) {
+                    appendDateExtraInfo(activeOccasionRef.current?.title || '', detailsText, visitorInfo?.name).catch(() => {});
+                }
             }
 
             // (Occasions are extracted per-utterance in handleSpeechResult to avoid re-duplication)
@@ -297,6 +306,12 @@ TRANSCRIPT:
         // Real-time precise occasion extraction.
         const occasions = extractOccasions(transcript, speakerName);
         if (occasions.length > 0) {
+            // Collect all relevant session dialogue context
+            const sessionNotes = updated
+                .filter(c => c.text.length > 3 && !/^(?:hi|hello|hey|good\s+morning|what\s+is\s+your\s+name|what\s+brings\s+you\s+here)[\s?.,!]*$/i.test(c.text.trim()))
+                .map(c => `${c.speaker}: "${c.text.trim()}"`)
+                .join('\n• ');
+
             occasions.forEach(occ => {
                 const icon = occ.type === 'reminder' ? '✅' : '📅';
                 const eventId = generateId();
@@ -310,14 +325,15 @@ TRANSCRIPT:
                     type: occ.type === 'reminder' ? 'reminder' : 'appointment',
                     createdAt: occ.date || new Date(),
                     speaker: speakerName,
-                    description: `${speakerName}: "${transcript.trim()}"`
+                    description: sessionNotes || `${speakerName}: "${transcript.trim()}"`
                 } as any).catch(() => {});
             });
-        } else if (activeOccasionRef.current) {
-            // Contextual extra info continuation during conversation
+        } else {
+            // Contextual extra info continuation during conversation (e.g. "We will be having a DJ party in there")
             const isFillerGreeting = /^(?:hi|hello|hey|good\s+morning|how\s+are\s+you|what\s+is\s+your\s+name|what\s+brings\s+you\s+here)[\s?.,!]*$/i.test(transcript.trim());
             if (!isFillerGreeting && transcript.trim().length > 3) {
-                appendDateExtraInfo(activeOccasionRef.current.title, transcript, speakerName).then(() => {
+                appendDateExtraInfo(activeOccasionRef.current?.title || '', transcript, speakerName).then(() => {
+                    onDateDetected(`Updated info: ${transcript.trim()}`);
                     onConversationUpdate(lastSummary || 'Conversation updated with additional event details.', visitorInfo || undefined);
                 }).catch(() => {});
             }

@@ -239,12 +239,19 @@ export async function appendDateExtraInfo(eventIdOrTitle: string, extraUtterance
     if (!extraUtterance || !extraUtterance.trim()) return;
     const db = await initDatabase();
     const all = await db.getAll('dates');
+    if (all.length === 0) return;
     
-    // Find target event by ID or title match
-    const target = all.find(d => d.id === eventIdOrTitle ||
+    // Find target event by ID or title match, or fallback to the latest active event
+    let target = eventIdOrTitle ? all.find(d => d.id === eventIdOrTitle ||
         cleanEventTitle(d.event).toLowerCase() === cleanEventTitle(eventIdOrTitle).toLowerCase() ||
         d.event.toLowerCase().includes(eventIdOrTitle.toLowerCase())
-    );
+    ) : undefined;
+
+    if (!target) {
+        // Sort by createdAt descending to pick the most recent event
+        const sorted = [...all].sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+        target = sorted[0];
+    }
 
     if (target) {
         const formattedNote = speaker ? `${speaker}: "${extraUtterance.trim()}"` : extraUtterance.trim();
