@@ -170,7 +170,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
         return (
             <div style={{
                 padding: '12px', borderRadius: '12px',
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(167,139,250,0.3)',
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 minHeight: '110px'
@@ -190,10 +190,10 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                     ) : (
-                        <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'white' }}>{person.name[0]}</span>
+                        <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#473f52' }}>{person.name[0]}</span>
                     )}
                 </div>
-                <h4 style={{ color: 'white', fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, width: '100%' }}>{person.name}</h4>
+                <h4 style={{ color: '#473f52', fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, width: '100%' }}>{person.name}</h4>
                 <p style={{ color: '#9ca3af', fontSize: '11px', margin: '4px 0 0 0' }}>{person.relation}</p>
             </div>
         );
@@ -273,7 +273,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 position: 'fixed',
                 inset: 0,
                 zIndex: 9999,
-                background: 'linear-gradient(180deg, #0a0a0f 0%, #121218 100%)',
+                background: 'linear-gradient(180deg, #fdf3fa 0%, #eef4ff 100%)',
                 overflow: 'auto'
             }}
         >
@@ -284,14 +284,14 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '8px 16px', borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'white', cursor: 'pointer', fontSize: '14px'
+                        background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(167,139,250,0.3)',
+                        color: '#473f52', cursor: 'pointer', fontSize: '14px'
                     }}
                 >
                     <ArrowLeft size={18} />
                     Back to Assistant
                 </button>
-                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: 0 }}>Personal Memory Dashboard</h1>
+                <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#473f52', margin: 0 }}>Personal Memory Dashboard</h1>
                 <div style={{ width: '160px' }}></div>
             </div>
 
@@ -323,7 +323,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             <span style={{
                                 position: 'absolute', top: '-4px', right: '-4px',
                                 padding: '2px 8px', fontSize: '11px', fontWeight: 'bold',
-                                background: '#ec4899', color: 'white', borderRadius: '99px'
+                                background: '#ec4899', color: '#473f52', borderRadius: '99px'
                             }}>
                                 {tab.count}
                             </span>
@@ -341,7 +341,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
                     padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden'
                 }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 8px 0' }}>Calendar</h2>
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#473f52', margin: '0 0 8px 0' }}>Calendar</h2>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <span style={{ fontSize: '14px', color: '#9ca3af' }}>{monthName} {currentMonth.getFullYear()}</span>
@@ -438,7 +438,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                                 return (
                                                     <div key={idx} style={{
                                                         fontSize: '13px',
-                                                        color: 'white',
+                                                        color: '#473f52',
                                                         padding: '4px 0',
                                                         display: 'flex',
                                                         alignItems: 'flex-start',
@@ -471,8 +471,8 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                         <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>Upcoming</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '100px', overflowY: 'auto' }}>
                             {dates.slice(0, 3).map((date) => (
-                                <div key={date.id} style={{ fontSize: '11px', padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <p style={{ color: 'white', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{date.event}</p>
+                                <div key={date.id} style={{ fontSize: '11px', padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                                    <p style={{ color: '#473f52', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{date.event}</p>
                                     <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>{date.date}</p>
                                 </div>
                             ))}
@@ -487,7 +487,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
                     padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
                 }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>Recent Conversations</h2>
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#473f52', margin: '0 0 16px 0' }}>Recent Conversations</h2>
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {conversations.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '32px 0' }}>
@@ -498,7 +498,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             conversations.slice(0, 5).map((convo) => (
                                 <div key={convo.id} style={{
                                     padding: '12px', borderRadius: '12px',
-                                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(167,139,250,0.3)',
                                     display: 'flex', gap: '12px', alignItems: 'flex-start', cursor: 'pointer'
                                 }}>
                                     {(() => {
@@ -509,7 +509,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                                 width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
                                                 background: participant?.faceImage ? 'transparent' : 'linear-gradient(135deg, #ec4899, #8b5cf6)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: 'white', fontWeight: 'bold', fontSize: '14px',
+                                                color: '#473f52', fontWeight: 'bold', fontSize: '14px',
                                                 overflow: 'hidden',
                                                 border: '1px solid rgba(236, 72, 153, 0.3)'
                                             }}>
@@ -531,7 +531,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                         );
                                     })()}
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ color: 'white', fontWeight: 500, fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <p style={{ color: '#473f52', fontWeight: 500, fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {convo.participants.join(' & ')}
                                         </p>
                                         <p style={{ color: '#9ca3af', fontSize: '11px', margin: '4px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -551,7 +551,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
                     padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
                 }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>People</h2>
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#473f52', margin: '0 0 16px 0' }}>People</h2>
                     <div style={{
                         flex: 1,
                         overflowY: 'auto',
@@ -596,7 +596,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
                     padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
                 }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>Activity Stream</h2>
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#473f52', margin: '0 0 16px 0' }}>Activity Stream</h2>
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {[...conversations.map(c => ({ type: 'conversation' as const, data: c, time: new Date(c.timestamp) })),
                         ...dates.map(d => ({ type: 'date' as const, data: d, time: new Date(d.createdAt) })),
@@ -613,7 +613,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                         background: activity.type === 'conversation' ? '#3b82f6' : activity.type === 'date' ? '#ec4899' : '#10b981'
                                     }}></div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: '12px', color: 'white', margin: 0, lineHeight: '1.4' }}>
+                                        <p style={{ fontSize: '12px', color: '#473f52', margin: 0, lineHeight: '1.4' }}>
                                             {activity.type === 'conversation'
                                                 ? `Conversation: ${(activity.data as ConversationRecord).summary?.slice(0, 50) || 'No summary'}...`
                                                 : activity.type === 'date'

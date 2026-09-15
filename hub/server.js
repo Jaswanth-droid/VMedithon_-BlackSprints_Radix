@@ -38,7 +38,7 @@ const clients = {
 
 // ── Connection handler ───────────────────────────────────────────────────────
 io.on('connection', (socket) => {
-    const clientType = socket.handshake.query.clientType || 'unknown';
+    const clientType = socket.handshake.query.clientType || socket.handshake.auth?.clientType || 'unknown';
     console.log(`[HUB] ✅  Connected: ${clientType} (${socket.id})`);
 
     if (clients[clientType]) clients[clientType].add(socket.id);

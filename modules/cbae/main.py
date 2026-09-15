@@ -11,10 +11,15 @@ import asyncio
 import json
 import os
 import re
+import sys
 from datetime import datetime
 
 import aiohttp
 import socketio
+
+# Windows consoles default to cp1252, which crashes on the emoji in our logs
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 HUB_URL = os.getenv("HUB_URL", "http://localhost:3001")

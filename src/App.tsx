@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
+import TiltCard from './TiltCard';
 import Webcam from 'react-webcam';
 import { getGeminiModel, analyzeScene } from './gemini';
 import IntroSequence from './IntroSequence';
@@ -299,10 +300,10 @@ function App() {
                                         <p className="text-dim">Alzheimer's Companion</p>
                                     </div>
                                 </div>
-                                <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-center">
-                                    <Activity className="mx-auto mb-2 status-active text-indigo-400" />
-                                    <p className="text-sm font-bold text-indigo-100">AI Core: Authorized</p>
-                                    <p className="text-xs text-indigo-300/60 mt-1">Activating Neural Bridge...</p>
+                                <div className="activation-box">
+                                    <Activity className="mx-auto mb-2 status-active" style={{ color: '#8f7bd8' }} />
+                                    <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>AI Core: Authorized</p>
+                                    <p className="text-xs text-dim mt-1">Activating Neural Bridge...</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -318,17 +319,17 @@ function App() {
                 {/* Hidden canvas */}
                 <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-                {/* Top Cyber-Medical Navigation Bar */}
-                <header className="w-full mb-3 px-4 py-2.5 rounded-2xl bg-gray-900/80 border border-white/10 backdrop-blur-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl">
+                {/* Top Pastel Navigation Bar */}
+                <header className="app-header w-full mb-3 px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <div style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', padding: '0.5rem', borderRadius: '0.75rem', boxShadow: '0 0 15px rgba(99, 102, 241, 0.4)' }}>
+                        <div style={{ background: 'var(--gradient-1)', padding: '0.5rem', borderRadius: '0.75rem', boxShadow: '0 8px 20px -8px rgba(178, 138, 240, 0.7)' }}>
                             <Brain size={20} color="white" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="font-extrabold text-sm tracking-wide text-white">MNEMOSYNC</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Clinical HUD
+                                <span className="font-extrabold text-sm tracking-wide" style={{ color: 'var(--text)' }}>MNEMOSYNC</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: 'rgba(196, 236, 217, 0.7)', color: '#3f8f74', border: '1px solid rgba(111, 199, 174, 0.45)', fontWeight: 700 }}>
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#6fc7ae' }} /> Live Clinical HUD
                                 </span>
                             </div>
                             <span className="text-[11px] text-dim">Cognitive Prosthetic & Caregiver Telemetry</span>
@@ -336,14 +337,10 @@ function App() {
                     </div>
 
                     {/* View Switcher Tabs */}
-                    <nav className="flex items-center gap-1.5 bg-black/50 p-1.5 rounded-xl border border-border text-xs">
+                    <nav className="tab-bar">
                         <button
                             onClick={() => setActiveView('vision')}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
-                                activeView === 'vision'
-                                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg font-bold'
-                                    : 'text-dim hover:text-white'
-                            }`}
+                            className={`tab-btn ${activeView === 'vision' ? 'active' : ''}`}
                         >
                             <Eye size={14} /> Live Vision HUD
                         </button>
@@ -353,11 +350,7 @@ function App() {
                                 setActiveView('progression');
                                 loadModuleData();
                             }}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
-                                activeView === 'progression'
-                                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg font-bold'
-                                    : 'text-dim hover:text-white'
-                            }`}
+                            className={`tab-btn ${activeView === 'progression' ? 'active' : ''}`}
                         >
                             <TrendingUp size={14} /> Disease Progression
                         </button>
@@ -367,11 +360,7 @@ function App() {
                                 setActiveView('behavior');
                                 loadModuleData();
                             }}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
-                                activeView === 'behavior'
-                                    ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg font-bold'
-                                    : 'text-dim hover:text-white'
-                            }`}
+                            className={`tab-btn ${activeView === 'behavior' ? 'active' : ''}`}
                         >
                             <Heart size={14} /> Behavior & Mental Health
                         </button>
@@ -381,21 +370,13 @@ function App() {
                                 setActiveView('caregiver');
                                 loadModuleData();
                             }}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
-                                activeView === 'caregiver'
-                                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg font-bold'
-                                    : 'text-dim hover:text-white'
-                            }`}
+                            className={`tab-btn ${activeView === 'caregiver' ? 'active' : ''}`}
                         >
                             <Shield size={14} /> Caregiver Reports
                         </button>
                         <button
                             onClick={() => { setActiveView('medication'); setShowMedicationModal(true); }}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-medium ${
-                                activeView === 'medication'
-                                    ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg font-bold'
-                                    : 'text-dim hover:text-white'
-                            }`}
+                            className={`tab-btn ${activeView === 'medication' ? 'active' : ''}`}
                         >
                             <Key size={14} /> Medication Reminders
                         </button>
@@ -405,9 +386,9 @@ function App() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setIsDashboardOpen(true)}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-pink-600/30 border border-purple-500/40 text-xs text-white hover:border-purple-400 hover:scale-105 transition-all cursor-pointer font-semibold shadow-lg"
+                            className="quick-btn"
                         >
-                            <History size={14} className="text-purple-300" /> Memory Dashboard
+                            <History size={14} style={{ color: '#9d7be0' }} /> Memory Dashboard
                         </button>
                     </div>
                 </header>
@@ -417,7 +398,7 @@ function App() {
                     <div className="assistive-grid flex-1 overflow-hidden" style={{ height: 'calc(100% - 60px)', padding: 0 }}>
                         {/* Left Column: Task Planner & Memory Log */}
                         <aside className="task-aside">
-                            <div className="card card-enhanced flex-1" style={{ overflow: 'auto' }}>
+                            <TiltCard className="card card-enhanced flex-1" style={{ overflow: 'auto' }}>
                                 <div className="flex items-center gap-3 mb-4">
                                     <div style={{ background: 'linear-gradient(135deg, #34d399, #10b981)', padding: '0.5rem', borderRadius: '0.75rem' }}>
                                         <Calendar size={20} color="white" />
@@ -478,9 +459,9 @@ function App() {
                                         </>
                                     )}
                                 </div>
-                            </div>
+                            </TiltCard>
 
-                            <div className="card card-enhanced flex-1">
+                            <TiltCard className="card card-enhanced flex-1">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', padding: '0.5rem', borderRadius: '0.75rem' }}>
                                         <History size={20} color="white" />
@@ -501,7 +482,7 @@ function App() {
                                         <p className="text-xs text-dim italic">Waiting for first camera scan...</p>
                                     )}
                                 </div>
-                            </div>
+                            </TiltCard>
                         </aside>
 
                         {/* Center Column: Vision Panel */}
@@ -518,13 +499,13 @@ function App() {
                                         style={{
                                             marginLeft: '0.5rem',
                                             padding: '0.25rem 0.75rem',
-                                            background: 'rgba(129, 140, 248, 0.3)',
-                                            border: '1px solid rgba(129, 140, 248, 0.5)',
+                                            background: 'rgba(255, 255, 255, 0.8)',
+                                            border: '1px solid rgba(167, 139, 250, 0.5)',
                                             borderRadius: '0.5rem',
                                             cursor: 'pointer',
-                                            color: 'white',
+                                            color: '#6d5ba8',
                                             fontSize: '0.75rem',
-                                            fontWeight: 600
+                                            fontWeight: 700
                                         }}
                                     >
                                         Scan Now
@@ -613,7 +594,7 @@ function App() {
                                                 <p className="text-dim">{identifiedPerson.relation}</p>
                                             </div>
                                         </div>
-                                        <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
+                                        <p className="text-sm mt-2" style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>
                                             "{identifiedPerson.summary}"
                                         </p>
                                     </motion.div>
@@ -624,7 +605,7 @@ function App() {
                         {/* Right Column: Memory Aside */}
                         <aside className="memory-aside">
                             <div className="scroll-content custom-scrollbar space-y-4 pr-2">
-                                <div className="card card-enhanced core-status gradient-border">
+                                <TiltCard className="card card-enhanced core-status gradient-border">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div style={{ background: 'var(--gradient-1)', padding: '0.5rem', borderRadius: '0.75rem' }}>
                                             <Brain size={20} color="white" />
@@ -643,23 +624,23 @@ function App() {
                                             <Activity size={16} className={isAutoScanEnabled ? "text-accent" : "text-dim"} />
                                             <span className="text-sm font-medium">Auto-Scan {isAutoScanEnabled ? 'ON' : 'OFF'}</span>
                                         </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
+                                        <label className="switch">
                                             <input
                                                 type="checkbox"
-                                                className="sr-only peer"
                                                 checked={isAutoScanEnabled}
                                                 onChange={(e) => setIsAutoScanEnabled(e.target.checked)}
+                                                aria-label="Toggle auto-scan"
                                             />
-                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                                            <span className="slider" />
                                         </label>
                                     </div>
-                                </div>
+                                </TiltCard>
 
                                 {/* Memory Dashboard Button */}
                                 <button
                                     onClick={() => setIsDashboardOpen(true)}
-                                    className="card card-enhanced gradient-border hover:scale-[1.02] transition-transform cursor-pointer w-full text-white text-left p-3.5"
-                                    style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(236, 72, 153, 0.1))', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                                    className="card card-enhanced gradient-border cursor-pointer w-full text-left p-3.5"
+                                    style={{ background: 'linear-gradient(135deg, rgba(221, 208, 247, 0.55), rgba(249, 200, 221, 0.45))', border: '1px solid rgba(167, 139, 250, 0.35)' }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div style={{ background: 'linear-gradient(135deg, #8b5cf6, #ec4899)', padding: '0.5rem', borderRadius: '0.75rem', boxShadow: '0 0 15px rgba(139, 92, 246, 0.4)' }}>
@@ -723,7 +704,7 @@ function App() {
                                 />
 
                                 {/* Last AI Capture */}
-                                <div className="card">
+                                <TiltCard className="card">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', padding: '0.5rem', borderRadius: '0.75rem' }}>
                                             <Activity size={20} color="white" />
@@ -740,8 +721,8 @@ function App() {
                                         paddingTop: '56.25%',
                                         borderRadius: '0.5rem',
                                         overflow: 'hidden',
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                        background: '#000'
+                                        border: '1px solid rgba(167, 139, 250, 0.3)',
+                                        background: 'rgba(255,255,255,0.5)'
                                     }}>
                                         {lastCapture ? (
                                             <img
@@ -763,12 +744,12 @@ function App() {
                                                 left: '50%',
                                                 transform: 'translate(-50%, -50%)',
                                                 fontSize: '10px',
-                                                color: '#9ca3af',
+                                                color: '#8d86a0',
                                                 textAlign: 'center'
                                             }}>Awaiting first scan...</p>
                                         )}
                                     </div>
-                                </div>
+                                </TiltCard>
                             </div>
                         </aside>
                     </div>
@@ -842,14 +823,12 @@ function App() {
                             maxWidth: '560px',
                             padding: '1rem 1.25rem',
                             borderRadius: '1rem',
-                            background: cognitiveAlert.severity === 'high'
-                                ? 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.15))'
-                                : 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.15))',
+                            background: 'rgba(255, 255, 255, 0.88)',
                             border: `1px solid ${
-                                cognitiveAlert.severity === 'high' ? 'rgba(239,68,68,0.5)' : 'rgba(251,191,36,0.5)'
+                                cognitiveAlert.severity === 'high' ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.45)'
                             }`,
                             backdropFilter: 'blur(16px)',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                            boxShadow: '0 18px 40px -18px rgba(148, 120, 220, 0.5)',
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: '0.75rem',
@@ -857,22 +836,22 @@ function App() {
                     >
                         <AlertCircle
                             size={22}
-                            style={{ color: cognitiveAlert.severity === 'high' ? '#f87171' : '#fbbf24', flexShrink: 0, marginTop: 2 }}
+                            style={{ color: cognitiveAlert.severity === 'high' ? '#ef4444' : '#f59e0b', flexShrink: 0, marginTop: 2 }}
                         />
                         <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'white', marginBottom: '0.2rem' }}>
+                            <p style={{ fontWeight: 700, fontSize: '0.9rem', color: cognitiveAlert.severity === 'high' ? '#b91c1c' : '#b45309', marginBottom: '0.2rem' }}>
                                 🧠 Cognitive Alert — {cognitiveAlert.severity.toUpperCase()}
                             </p>
-                            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.75)' }}>
+                            <p style={{ fontSize: '0.8rem', color: 'rgba(71,63,82,0.85)' }}>
                                 {cognitiveAlert.reason}
                             </p>
-                            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', marginTop: '0.25rem' }}>
+                            <p style={{ fontSize: '0.7rem', color: 'rgba(71,63,82,0.55)', marginTop: '0.25rem' }}>
                                 Detected at {new Date(cognitiveAlert.timestamp).toLocaleTimeString()}
                             </p>
                         </div>
                         <button
                             onClick={() => setCognitiveAlert(null)}
-                            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
+                            style={{ background: 'none', border: 'none', color: 'rgba(71,63,82,0.5)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
                         >✕</button>
                     </motion.div>
                 )}

@@ -6,10 +6,15 @@ into spoken TTS audio cues using pyttsx3 (offline, no API key needed).
 
 import asyncio
 import os
+import sys
 import threading
 
 import pyttsx3
 import socketio
+
+# Windows consoles default to cp1252, which crashes on the emoji in our logs
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 HUB_URL = os.getenv("HUB_URL", "http://localhost:3001")

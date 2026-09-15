@@ -82,10 +82,14 @@ export interface CognitiveAlert {
 
 export function onCognitiveAlert(handler: (alert: CognitiveAlert) => void) {
     getHub().on('cognitive_alert', handler);
-    return () => getHub().off('cognitive_alert', handler);
+    return () => {
+        getHub().off('cognitive_alert', handler);
+    };
 }
 
 export function onWearableStatus(handler: (data: Record<string, unknown>) => void) {
     getHub().on('wearable_status', handler);
-    return () => getHub().off('wearable_status', handler);
+    return () => {
+        getHub().off('wearable_status', handler);
+    };
 }
