@@ -156,6 +156,24 @@ app.get('/api/download/worsening-pdf', (_req, res) => {
     }
 });
 
+app.get('/api/download/sunita-pptx', (_req, res) => {
+    const filePath = path.join(__dirname, '..', 'sample_reports', 'Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, 'Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx');
+    } else {
+        res.status(404).json({ error: 'Presentation PPTX not found' });
+    }
+});
+
+app.get('/api/download/sunita-pdf', (_req, res) => {
+    const filePath = path.join(__dirname, '..', 'sample_reports', 'Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma.pdf');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, 'Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma.pdf');
+    } else {
+        res.status(404).json({ error: 'Sunita Sharma PDF not found' });
+    }
+});
+
 // Direct file upload endpoint (PDF, Word, TXT)
 app.post('/api/ocr/upload', upload.single('reportFile'), async (req, res) => {
     try {
@@ -495,14 +513,20 @@ app.get('/', (_req, res) => {
                     <div style="font-size: 11px; color: #94a3b8;">Real clinical template matching specified structure</div>
                 </div>
                 <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <a href="/api/download/sunita-pptx" download="Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx" style="text-decoration: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📊 Sunita Sharma Case PPT
+                    </a>
+                    <a href="/api/download/sunita-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma.pdf" style="text-decoration: none; background: #059669; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📄 Sunita Sharma PDF
+                    </a>
                     <a href="/api/download/sample-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sample.pdf" style="text-decoration: none; background: #6366f1; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📥 Sample PDF (Baseline)
+                        📥 Rajesh (Baseline PDF)
                     </a>
                     <a href="/api/download/worsening-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf" style="text-decoration: none; background: #dc2626; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        🚨 Worsening Follow-Up PDF
+                        🚨 Rajesh (Worsening PDF)
                     </a>
                     <a href="/api/download/template-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Template.pdf" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                        📄 Blank PDF
+                        📄 Blank Template
                     </a>
                 </div>
             </div>
@@ -510,7 +534,7 @@ app.get('/', (_req, res) => {
             <!-- Upload Area -->
             <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
                 <div class="dropzone-icon">📁</div>
-                <strong style="font-size: 14px; color: #f1f5f9;">Drop real PDF or Word Doc here</strong>
+                <strong style="font-size: 14px; color: #f1f5f9;">Drop real PDF, PPTX or Word Doc here</strong>
                 <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">or click to browse from device (supports live PDF OCR)</p>
                 <input id="fileInput" type="file" accept=".pdf,.docx,.doc,.txt" style="display: none;" onchange="handleFileSelect(event)" />
             </div>
@@ -519,11 +543,10 @@ app.get('/', (_req, res) => {
                 <span style="font-size: 12px; font-weight: 600; color: #94a3b8;">Or load clinical demo presets:</span>
             </div>
             <div class="btn-group">
+                <button class="btn-preset" style="border-color: #10b981; color: #6ee7b7;" onclick="loadSample(6)">🌸 Sunita Sharma (MMSE: 21/30)</button>
                 <button class="btn-preset" style="border-color: #a855f7; color: #d8b4fe;" onclick="loadSample(4)">⭐ Rajesh Verma (Baseline: 19/30)</button>
                 <button class="btn-preset" style="border-color: #ef4444; color: #fca5a5;" onclick="loadSample(5)">🚨 Rajesh Verma (Worsening: 13/30)</button>
                 <button class="btn-preset" onclick="loadSample(1)">3-Visit Longitudinal</button>
-                <button class="btn-preset" onclick="loadSample(2)">Rapid Early-Onset</button>
-                <button class="btn-preset" onclick="loadSample(3)">Mild MCI</button>
             </div>
 
             <label style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; display: block;">Report Extracted Text / Edit:</label>
@@ -764,7 +787,55 @@ Patient exhibits a marked, rapid cognitive and functional decline over the past 
 
 ___________________________
 Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
-Date: 18 / 03 / 2027\`
+Date: 18 / 03 / 2027\`,
+
+            6: \`Vasundhara Hospital, Ghaziabad
+Alzheimer's Disease Medical Report
+
+Patient Details:
+Name: Mrs. Sunita Sharma
+Age/Gender: 68 years / Female
+Report Date: 10 / 11 / 2026
+
+Consulting Physician:
+Dr. A. K. Banerjee
+Specialization: Neurology (Cognitive Disorders)
+Hospital: Vasundhara Hospital, Ghaziabad
+
+Medical History:
+- Memory decline observed over the past 10 months with progressive forgetfulness of names and dates.
+- Disorientation during outdoor walks in neighborhood; difficulty remembering cooking sequences.
+- Repeats questions periodically; expresses anxiety regarding memory slips.
+- Sleep disturbances and mild evening agitation observed by family members.
+
+Physical & Cognitive Examination:
+- Blood Pressure: 126/80 mmHg
+- Pulse: 72 per minute (Regular rhythm)
+- Cognitive Test (MMSE Score): 21 / 30 (Mild-to-Moderate Cognitive Impairment)
+• Orientation: 6 / 10 (Confused about day of week & month)
+• Memory: 2 / 6 (Delayed recall 1/3 objects)
+• Attention: 4 / 5 (Serial 7 subtraction with minor slip)
+• Language: 9 / 9 (Naming and repetition preserved)
+
+Lab & Imaging Reports:
+- MRI Brain: Bilateral hippocampal volume loss (MTA Grade 2), mild temporal horn widening.
+- Blood Tests: Thyroid profile (TSH 2.1 uIU/mL), Vitamin B12 (480 pg/mL), Fasting Blood Sugar - Normal.
+- EEG: Mild slowing of background activity in temporal leads; no focal epileptic discharges.
+
+Diagnosis:
+Alzheimer's Disease (Early-to-Moderate Stage).
+
+Treatment Plan:
+1. Medications: Donepezil 5mg once daily at bedtime (titrate to 10mg after 4 weeks).
+2. Lifestyle & Family Support: Daily orientation whiteboard, memory games, supervised walks, balanced diet.
+3. Follow-up: Neurological evaluation every 3 months for cognitive score monitoring.
+
+Conclusion:
+Patient has been diagnosed with Early-to-Moderate Alzheimer's Disease. With structured cognitive exercises, proper anticholinesterase therapy, and active family caregiving, disease progression velocity can be controlled, and quality of daily living significantly supported.
+
+___________________________
+Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
+Date: 10 / 11 / 2026\`
         };
 
         function loadSample(num) {
