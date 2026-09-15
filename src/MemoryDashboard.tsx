@@ -333,25 +333,62 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                 ))}
             </div>
 
-            {/* Main Content - 4 Column Grid */}
-            <div style={{ padding: '16px 32px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', height: 'calc(100vh - 200px)' }}>
+            {/* Main Content - Flex Layout with Active Expansion & Background Blur */}
+            <div style={{
+                padding: '16px 32px',
+                display: 'flex',
+                gap: '20px',
+                height: 'calc(100vh - 210px)',
+                minHeight: '480px',
+                transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}>
 
-                {/* Column 1: Calendar */}
-                <div style={{
-                    borderRadius: '16px', border: '2px solid rgba(236,72,153,0.5)',
-                    background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
-                    padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden'
-                }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 8px 0' }}>Calendar</h2>
+                {/* Column 1: Calendar (dates) */}
+                <div
+                    onClick={() => activeTab !== 'dates' && setActiveTab('dates')}
+                    style={{
+                        flex: activeTab === 'dates' ? 3.2 : 0.95,
+                        borderRadius: '16px',
+                        border: activeTab === 'dates' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        background: activeTab === 'dates'
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
+                            : 'rgba(255,255,255,0.02)',
+                        padding: '16px',
+                        boxShadow: activeTab === 'dates' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                        overflow: 'hidden',
+                        filter: activeTab === 'dates' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
+                        transform: activeTab === 'dates' ? 'scale(1.005)' : 'scale(0.97)',
+                        cursor: activeTab === 'dates' ? 'default' : 'pointer',
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                    }}
+                >
+                    {activeTab === 'dates' && (
+                        <div style={{
+                            position: 'absolute', top: '12px', right: '16px',
+                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
+                            padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
+                        }}>
+                            ACTIVE FOCUS
+                        </div>
+                    )}
+
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={20} color={activeTab === 'dates' ? '#f472b6' : '#9ca3af'} />
+                        Calendar
+                    </h2>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <span style={{ fontSize: '14px', color: '#9ca3af' }}>{monthName} {currentMonth.getFullYear()}</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                            <button onClick={(e) => { e.stopPropagation(); setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)); }}
                                 style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
                                 <ChevronLeft size={16} color="#9ca3af" />
                             </button>
-                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                            <button onClick={(e) => { e.stopPropagation(); setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)); }}
                                 style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
                                 <ChevronRight size={16} color="#9ca3af" />
                             </button>
@@ -468,13 +505,13 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     </div>
 
                     {/* Upcoming Events */}
-                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                        <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>Upcoming</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '100px', overflowY: 'auto' }}>
-                            {dates.slice(0, 3).map((date) => (
-                                <div key={date.id} style={{ fontSize: '11px', padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>Upcoming Registered Dates</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' }}>
+                            {dates.map((date) => (
+                                <div key={date.id} style={{ fontSize: '12px', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <p style={{ color: 'white', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanEventTitle(date.event)}</p>
-                                    <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>{date.date}</p>
+                                    <p style={{ color: '#ec4899', fontSize: '11px', margin: '4px 0 0 0', fontWeight: 600 }}>{date.date}</p>
                                 </div>
                             ))}
                             {dates.length === 0 && <p style={{ fontSize: '11px', color: '#6b7280' }}>No upcoming events</p>}
@@ -482,37 +519,70 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     </div>
                 </div>
 
-                {/* Column 2: Recent Conversations */}
-                <div style={{
-                    borderRadius: '16px', border: '2px solid rgba(236,72,153,0.5)',
-                    background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
-                    padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
-                }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>Recent Conversations</h2>
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Column 2: Recent Conversations (conversations) */}
+                <div
+                    onClick={() => activeTab !== 'conversations' && setActiveTab('conversations')}
+                    style={{
+                        flex: activeTab === 'conversations' ? 3.2 : 0.95,
+                        borderRadius: '16px',
+                        border: activeTab === 'conversations' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        background: activeTab === 'conversations'
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
+                            : 'rgba(255,255,255,0.02)',
+                        padding: '16px',
+                        boxShadow: activeTab === 'conversations' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                        overflow: 'hidden',
+                        filter: activeTab === 'conversations' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
+                        transform: activeTab === 'conversations' ? 'scale(1.005)' : 'scale(0.97)',
+                        cursor: activeTab === 'conversations' ? 'default' : 'pointer',
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                    }}
+                >
+                    {activeTab === 'conversations' && (
+                        <div style={{
+                            position: 'absolute', top: '12px', right: '16px',
+                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
+                            padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
+                        }}>
+                            ACTIVE FOCUS
+                        </div>
+                    )}
+
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MessageSquare size={20} color={activeTab === 'conversations' ? '#f472b6' : '#9ca3af'} />
+                        Past Conversations
+                    </h2>
+
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
                         {conversations.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '32px 0' }}>
                                 <MessageSquare size={32} color="#4b5563" style={{ margin: '0 auto 8px' }} />
                                 <p style={{ fontSize: '13px', color: '#6b7280' }}>No conversations yet</p>
                             </div>
                         ) : (
-                            conversations.slice(0, 5).map((convo) => (
+                            conversations.map((convo) => (
                                 <div key={convo.id} style={{
-                                    padding: '12px', borderRadius: '12px',
-                                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                                    display: 'flex', gap: '12px', alignItems: 'flex-start', cursor: 'pointer'
+                                    padding: '14px', borderRadius: '12px',
+                                    background: activeTab === 'conversations' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    display: 'flex', gap: '14px', alignItems: 'flex-start', cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
                                 }}>
                                     {(() => {
                                         const participantName = convo.participants[0];
                                         const participant = people.find(p => p.name.trim().toLowerCase() === participantName.trim().toLowerCase());
                                         return (
                                             <div style={{
-                                                width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+                                                width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
                                                 background: participant?.faceImage ? 'transparent' : 'linear-gradient(135deg, #ec4899, #8b5cf6)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: 'white', fontWeight: 'bold', fontSize: '14px',
+                                                color: 'white', fontWeight: 'bold', fontSize: '15px',
                                                 overflow: 'hidden',
-                                                border: '1px solid rgba(236, 72, 153, 0.3)'
+                                                border: '2px solid rgba(236, 72, 153, 0.4)'
                                             }}>
                                                 {participant?.faceImage ? (
                                                     <img
@@ -532,35 +602,68 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                         );
                                     })()}
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ color: 'white', fontWeight: 500, fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {convo.participants.join(' & ')}
-                                        </p>
-                                        <p style={{ color: '#9ca3af', fontSize: '11px', margin: '4px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', margin: 0 }}>
+                                                {convo.participants.join(' & ')}
+                                            </p>
+                                            <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 500 }}>{formatTimeAgo(convo.timestamp)}</span>
+                                        </div>
+                                        <p style={{ color: '#cbd5e1', fontSize: '12px', margin: '4px 0 0 0', lineHeight: 1.5 }}>
                                             {convo.summary}
                                         </p>
                                     </div>
-                                    <span style={{ fontSize: '10px', color: '#6b7280', flexShrink: 0 }}>{formatTimeAgo(convo.timestamp)}</span>
                                 </div>
                             ))
                         )}
                     </div>
                 </div>
 
-                {/* Column 3: People */}
-                <div style={{
-                    borderRadius: '16px', border: '2px solid rgba(236,72,153,0.5)',
-                    background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
-                    padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
-                }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>People</h2>
+                {/* Column 3: People (people) */}
+                <div
+                    onClick={() => activeTab !== 'people' && setActiveTab('people')}
+                    style={{
+                        flex: activeTab === 'people' ? 3.2 : 0.95,
+                        borderRadius: '16px',
+                        border: activeTab === 'people' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        background: activeTab === 'people'
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
+                            : 'rgba(255,255,255,0.02)',
+                        padding: '16px',
+                        boxShadow: activeTab === 'people' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                        overflow: 'hidden',
+                        filter: activeTab === 'people' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
+                        transform: activeTab === 'people' ? 'scale(1.005)' : 'scale(0.97)',
+                        cursor: activeTab === 'people' ? 'default' : 'pointer',
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                    }}
+                >
+                    {activeTab === 'people' && (
+                        <div style={{
+                            position: 'absolute', top: '12px', right: '16px',
+                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
+                            padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
+                        }}>
+                            ACTIVE FOCUS
+                        </div>
+                    )}
+
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Users size={20} color={activeTab === 'people' ? '#f472b6' : '#9ca3af'} />
+                        People
+                    </h2>
+
                     <div style={{
                         flex: 1,
                         overflowY: 'auto',
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: '20px',
-                        alignContent: 'space-evenly',
-                        padding: '10px 0'
+                        gridTemplateColumns: activeTab === 'people' ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+                        gap: '16px',
+                        alignContent: 'start',
+                        padding: '4px 0'
                     }}>
                         {people.length === 0 ? (
                             <div style={{ gridColumn: 'span 2', textAlign: 'center', padding: '32px 0' }}>
@@ -569,12 +672,10 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             </div>
                         ) : (
                             (() => {
-                                // Deduplicate people by name for the UI (case-insensitive trim)
                                 const uniquePeople = people.reduce((acc, current) => {
                                     const curName = current.name.trim().toLowerCase();
                                     const x = acc.find(item => item.name.trim().toLowerCase() === curName);
                                     if (!x) return acc.concat([current]);
-                                    // Priority: 1. Has image, 2. Newer (lastSeen)
                                     const xHasImg = !!x.faceImage;
                                     const curHasImg = !!current.faceImage;
                                     if (!xHasImg && curHasImg) {
@@ -583,7 +684,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                     return acc;
                                 }, [] as typeof people);
 
-                                return uniquePeople.slice(0, 6).map((person) => (
+                                return uniquePeople.map((person) => (
                                     <PersonCard key={person.id} person={person} />
                                 ));
                             })()
@@ -591,38 +692,71 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     </div>
                 </div>
 
-                {/* Column 4: Activity Stream */}
-                <div style={{
-                    borderRadius: '16px', border: '2px solid rgba(236,72,153,0.5)',
-                    background: 'linear-gradient(180deg, rgba(236,72,153,0.1) 0%, transparent 100%)',
-                    padding: '16px', boxShadow: '0 0 30px rgba(236,72,153,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
-                }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' }}>Activity Stream</h2>
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Column 4: Notes & Activity Stream (notes) */}
+                <div
+                    onClick={() => activeTab !== 'notes' && setActiveTab('notes')}
+                    style={{
+                        flex: activeTab === 'notes' ? 3.2 : 0.95,
+                        borderRadius: '16px',
+                        border: activeTab === 'notes' ? '2px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                        background: activeTab === 'notes'
+                            ? 'linear-gradient(180deg, rgba(236,72,153,0.15) 0%, rgba(15,15,25,0.95) 100%)'
+                            : 'rgba(255,255,255,0.02)',
+                        padding: '16px',
+                        boxShadow: activeTab === 'notes' ? '0 0 35px rgba(236,72,153,0.35)' : 'none',
+                        overflow: 'hidden',
+                        filter: activeTab === 'notes' ? 'none' : 'blur(4px) opacity(0.35) brightness(0.7)',
+                        transform: activeTab === 'notes' ? 'scale(1.005)' : 'scale(0.97)',
+                        cursor: activeTab === 'notes' ? 'default' : 'pointer',
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                    }}
+                >
+                    {activeTab === 'notes' && (
+                        <div style={{
+                            position: 'absolute', top: '12px', right: '16px',
+                            background: 'rgba(236,72,153,0.2)', border: '1px solid #ec4899',
+                            color: '#f472b6', fontSize: '10px', fontWeight: 'bold',
+                            padding: '3px 8px', borderRadius: '99px', letterSpacing: '0.5px'
+                        }}>
+                            ACTIVE FOCUS
+                        </div>
+                    )}
+
+                    <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Clock size={20} color={activeTab === 'notes' ? '#f472b6' : '#9ca3af'} />
+                        Notes & Activity Stream
+                    </h2>
+
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
                         {[...conversations.map(c => ({ type: 'conversation' as const, data: c, time: new Date(c.timestamp) })),
                         ...dates.map(d => ({ type: 'date' as const, data: d, time: new Date(d.createdAt) })),
                         ...people.map(p => ({ type: 'person' as const, data: p, time: new Date(p.lastSeen) }))]
                             .sort((a, b) => b.time.getTime() - a.time.getTime())
-                            .slice(0, 10)
                             .map((activity, idx) => (
                                 <div key={`${activity.type}-${idx}`} style={{
                                     display: 'flex', alignItems: 'flex-start', gap: '12px',
-                                    padding: '8px', borderRadius: '8px'
+                                    padding: '10px 12px', borderRadius: '8px',
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.06)'
                                 }}>
                                     <div style={{
-                                        width: '8px', height: '8px', borderRadius: '50%', marginTop: '6px', flexShrink: 0,
-                                        background: activity.type === 'conversation' ? '#3b82f6' : activity.type === 'date' ? '#ec4899' : '#10b981'
+                                        width: '10px', height: '10px', borderRadius: '50%', marginTop: '4px', flexShrink: 0,
+                                        background: activity.type === 'conversation' ? '#3b82f6' : activity.type === 'date' ? '#ec4899' : '#10b981',
+                                        boxShadow: `0 0 8px ${activity.type === 'conversation' ? '#3b82f6' : activity.type === 'date' ? '#ec4899' : '#10b981'}`
                                     }}></div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: '12px', color: 'white', margin: 0, lineHeight: '1.4' }}>
+                                        <p style={{ fontSize: '13px', color: 'white', margin: 0, lineHeight: '1.4' }}>
                                             {activity.type === 'conversation'
-                                                ? `Conversation: ${(activity.data as ConversationRecord).summary?.slice(0, 50) || 'No summary'}...`
+                                                ? `Conversation with ${(activity.data as ConversationRecord).participants?.join(', ') || 'Visitor'}: ${(activity.data as ConversationRecord).summary || ''}`
                                                 : activity.type === 'date'
-                                                    ? `Event: ${(activity.data as ImportantDate).event}`
-                                                    : `Person: ${(activity.data as PersonRecord).name}`
+                                                    ? `Event: ${(activity.data as ImportantDate).event} (${(activity.data as ImportantDate).date})`
+                                                    : `Person recorded: ${(activity.data as PersonRecord).name} (${(activity.data as PersonRecord).relation})`
                                             }
                                         </p>
-                                        <p style={{ fontSize: '10px', color: '#6b7280', margin: '4px 0 0 0' }}>{formatTimeAgo(activity.time)}</p>
+                                        <p style={{ fontSize: '10px', color: '#818cf8', margin: '4px 0 0 0', fontWeight: 500 }}>{formatTimeAgo(activity.time)}</p>
                                     </div>
                                 </div>
                             ))
