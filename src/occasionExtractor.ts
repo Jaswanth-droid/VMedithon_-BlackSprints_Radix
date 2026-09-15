@@ -33,10 +33,13 @@ const FILLER_PREFIXES = [
     /^(?:what|who|how|where|when|why)\s+(?:brings\s+you\s+here|is\s+your\s+name|are\s+you|did\s+you\s+say|is\s+this|is\s+that)\??[\s,.-]*/i,
     /^(?:so\s+)?(?:actually\s+)?(?:well\s+)?(?:by\s+the\s+way\s+)?(?:you\s+know\s+)?(?:i\s+think\s+)?/i,
     /^(?:tomorrow|today|tonight|yesterday|next\s+week|next\s+month)\s+(?:i|we|you)?\s*(?:have|has|had|is|are|got)?\s*/i,
-    /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|plan\s+to|planning\s+to)\s+(?:a|an|the|my|our|some)?\s+/i,
-    /^(?:i'm|i\s+am|we're|we\s+are|they're|they\s+are)\s+(?:having|going\s+to|planning|attending|doing)\s+(?:a|an|the|my|our)?\s+/i,
-    /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's|that's|this\s+is)\s+(?:a|an|the)?\s+/i,
-    /^(?:is|was|will\s+be|are|were|be)\s+/i,
+    /^(?:i'm|i\s+am|i\s+was|i\s+will\s+be|we're|we\s+are|they're|they\s+are|he's|he\s+is|she's|she\s+is)\s+(?:here\s+for|here\s+to|coming\s+for|coming\s+to|going\s+to|having|planning\s+for|planning\s+to|attending|celebrating|doing|organizing|holding|joining|visiting\s+for|visiting)?\s*(?:a|an|the|my|our|his|her|their)?\s*/i,
+    /^(?:am|im|i'm)\s+(?:here\s+for|here\s+to|coming\s+for|having|celebrating|visiting)?\s*(?:a|an|the|my|our|his|her)?\s*/i,
+    /^(?:here\s+for|here\s+to|came\s+for|coming\s+for|planning\s+for|celebrating|attending|organizing|having|for)\s+(?:a|an|the|my|our|his|her|their)?\s*/i,
+    /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|will\s+be\s+having|plan\s+to|planning\s+to|came\s+for|am\s+here\s+for|invited\s+you\s+to|would\s+like\s+to\s+invite\s+you\s+to)\s+(?:a|an|the|my|our|some)?\s*/i,
+    /^(?:we\s+will\s+be\s+having|we'll\s+be\s+having|will\s+be\s+having|having)\s+(?:a|an|the)?\s*/i,
+    /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's|that's|this\s+is)\s+(?:a|an|the|my|our|your)?\s*/i,
+    /^(?:is\s+my|is\s+our|is\s+your|is\s+a|is\s+an|is\s+the|is|was|will\s+be|are|were|be)\s+/i,
     /^(?:my|your|his|her|our|their)\s+/i,
     /^(?:going\s+for|going\s+to|planning\s+for|attending|scheduled\s+for)\s+(?:a|an|the)?\s+/i,
     /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to|has\s+to|got\s+to|supposed\s+to)\s+/i,
@@ -48,6 +51,8 @@ const RELATIVE_CLAUSES = [
     /\s*,\s*(?:so|and\s+so|because|that's\s+why|which\s+is\s+why|since)\s+.*$/i,
     /\s+(?:so|because)\s+(?:i|we|you)\s+.*$/i,
     /\s+(?:which|that)\s+(?:is|was|will\s+be|falls\s+on|takes\s+place\s+on).*$/i,
+    /\s*,\s*(?:it\s+is|it's|which\s+is|that\s+is|falling\s+on|scheduled\s+for)\s+.*$/i,
+    /\s+(?:it\s+is|it's|which\s+is|that\s+is)\s+(?:on|for|at|scheduled|set|planned).*$/i,
     /\s+(?:scheduled\s+for|set\s+for|planned\s+for).*$/i
 ];
 
@@ -138,7 +143,7 @@ function normaliseWhen(raw: string): string {
  * Extract concise occasions from conversational transcript/utterance.
  * Converts "So actually tomorrow I have a hackathon which is 16th September" -> "Hackathon" on "September 16th"
  */
-export function extractOccasions(input: string): Occasion[] {
+export function extractOccasions(input: string, speakerName?: string): Occasion[] {
     if (!input || !input.trim()) return [];
     const results: Occasion[] = [];
     const seen = new Set<string>();
@@ -151,7 +156,7 @@ export function extractOccasions(input: string): Occasion[] {
 
     for (const clause of clauses) {
         // Skip pure greetings or conversational questions
-        if (/^(?:hi|hello|hey|good\s+morning|how\s+are\s+you|what\s+brings\s+you\s+here|what\s+is\s+your\s+name)[\s?.,!]*$/i.test(clause)) {
+        if (/^(?:hi|hello|hey|good\s+morning|how\s+are\s+you|what\s+brings\s+you\s+here|what\s+is\s+your\s+name|my\s+name\s+is|sure\s+i'll\s+be\s+there|sure\s+i\s+will)[\s?.,!]*$/i.test(clause)) {
             continue;
         }
 
@@ -204,19 +209,26 @@ export function extractOccasions(input: string): Occasion[] {
         candidate = candidate.replace(/^[\s,?.!-]+|[\s,?.!-]+$/g, '').trim();
 
         // Use cleanEventTitle & NLP entity refinement
-        let eventName = cleanEventTitle(candidate);
+        let eventName = cleanEventTitle(candidate, speakerName);
 
         // Filter out residual garbage words
         if (
             !eventName ||
             eventName === 'Event' ||
             eventName.length < 2 ||
-            /^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today)$/i.test(eventName)
+            /^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today|is\s+my|am\s+here)$/i.test(eventName)
         ) {
             continue;
         }
 
-        const title = titleCase(eventName);
+        let title = titleCase(eventName);
+        // If speaker is a visitor and phrase referred to "my birthday" / "my anniversary", attribute to visitor
+        if (speakerName && speakerName !== 'You' && speakerName !== 'User' && /^(?:birthday|anniversary|wedding|graduation|farewell|party)$/i.test(title)) {
+            if (/\b(?:my|our)\b/i.test(clause)) {
+                title = `${speakerName}'s ${title}`;
+            }
+        }
+
         const when = normaliseWhen(primaryWhen);
         const key = `${title}|${when}`.toLowerCase();
         if (seen.has(key)) continue;

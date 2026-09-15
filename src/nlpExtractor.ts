@@ -31,7 +31,18 @@ const MONTH_NAMES = [
  * "We are going to a dinner" -> "Dinner"
  * "There is a meeting" -> "Meeting"
  */
-export function cleanEventTitle(raw: string): string {
+/**
+ * Clean leading conversational filler phrases, pronouns, verbs, questions, and dates
+ * e.g. "Tomorrow Have" -> "Event"
+ * "you here? actually" -> filtered / "Event"
+ * "I'm here for my birthday, it is on 17th September." -> "Birthday"
+ * "We will be having DJ party in our" -> "DJ Party"
+ * "So actually tomorrow I have a hackathon which is 16th September" -> "Hackathon"
+ * "I have a Birthday" -> "Birthday"
+ * "We are going to a dinner" -> "Dinner"
+ * "There is a meeting" -> "Meeting"
+ */
+export function cleanEventTitle(raw: string, speakerName?: string): string {
     if (!raw || !raw.trim()) return 'Event';
     let clean = raw.trim();
 
@@ -54,6 +65,8 @@ export function cleanEventTitle(raw: string): string {
     clean = clean.replace(/\s*,\s*(?:so|and\s+so|because|that's\s+why|which\s+is\s+why|since)\s+.*$/i, '');
     clean = clean.replace(/\s+(?:so|because)\s+(?:i|we|you)\s+.*$/i, '');
     clean = clean.replace(/\s+(?:which|that)\s+(?:is|was|will\s+be|falls\s+on|takes\s+place\s+on).*$/i, '');
+    clean = clean.replace(/\s*,\s*(?:it\s+is|it's|which\s+is|that\s+is|falling\s+on|scheduled\s+for)\s+.*$/i, '');
+    clean = clean.replace(/\s+(?:it\s+is|it's|which\s+is|that\s+is)\s+(?:on|for|at|scheduled|set|planned).*$/i, '');
     clean = clean.replace(/\s+(?:scheduled\s+for|set\s+for|planned\s+for).*$/i, '');
 
     // 5. List of conversational prefixes, copulas, possessives to strip
@@ -62,10 +75,13 @@ export function cleanEventTitle(raw: string): string {
         /^(?:what|who|how|where|when|why)\s+(?:brings\s+you\s+here|is\s+your\s+name|are\s+you|did\s+you\s+say|is\s+this|is\s+that)\??[\s,.-]*/i,
         /^(?:so\s+)?(?:actually\s+)?(?:well\s+)?(?:by\s+the\s+way\s+)?(?:you\s+know\s+)?(?:i\s+think\s+)?/i,
         /^(?:tomorrow|today|tonight|yesterday|next\s+week|next\s+month)\s+(?:i|we|you)?\s*(?:have|has|had|is|are|got)?\s*/i,
-        /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|plan\s+to|planning\s+to)\s+(?:a|an|the|my|our|some)?\s+/i,
-        /^(?:i'm|i\s+am|we're|we\s+are|they're|they\s+are)\s+(?:having|going\s+to|planning|attending|doing)\s+(?:a|an|the|my|our)?\s+/i,
-        /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's|that's|this\s+is)\s+(?:a|an|the)?\s+/i,
-        /^(?:is|was|will\s+be|are|were|be)\s+/i,
+        /^(?:i'm|i\s+am|i\s+was|i\s+will\s+be|we're|we\s+are|they're|they\s+are|he's|he\s+is|she's|she\s+is)\s+(?:here\s+for|here\s+to|coming\s+for|coming\s+to|going\s+to|having|planning\s+for|planning\s+to|attending|celebrating|doing|organizing|holding|joining|visiting\s+for|visiting)?\s*(?:a|an|the|my|our|his|her|their)?\s*/i,
+        /^(?:am|im|i'm)\s+(?:here\s+for|here\s+to|coming\s+for|having|celebrating|visiting)?\s*(?:a|an|the|my|our|his|her)?\s*/i,
+        /^(?:here\s+for|here\s+to|came\s+for|coming\s+for|planning\s+for|celebrating|attending|organizing|having|for)\s+(?:a|an|the|my|our|his|her|their)?\s*/i,
+        /^(?:i|we|you|they|he|she)\s+(?:have|has|had|got|have\s+got|will\s+have|will\s+be\s+having|plan\s+to|planning\s+to|came\s+for|am\s+here\s+for|invited\s+you\s+to|would\s+like\s+to\s+invite\s+you\s+to)\s+(?:a|an|the|my|our|some)?\s*/i,
+        /^(?:we\s+will\s+be\s+having|we'll\s+be\s+having|will\s+be\s+having|having)\s+(?:a|an|the)?\s*/i,
+        /^(?:there\s+is|there's|there\s+will\s+be|it\s+is|it's|that's|this\s+is)\s+(?:a|an|the|my|our|your)?\s*/i,
+        /^(?:is\s+my|is\s+our|is\s+your|is\s+a|is\s+an|is\s+the|is|was|will\s+be|are|were|be)\s+/i,
         /^(?:my|your|his|her|our|their)\s+/i,
         /^(?:going\s+for|going\s+to|planning\s+for|attending|scheduled\s+for)\s+(?:a|an|the)?\s+/i,
         /^(?:don't\s+forget\s+to|remember\s+to|remind\s+me\s+to|please\s+remind\s+me\s+to|please\s+remember\s+to|make\s+sure\s+to|need\s+to|have\s+to|has\s+to|got\s+to|supposed\s+to)\s+/i,
@@ -86,8 +102,8 @@ export function cleanEventTitle(raw: string): string {
         }
     }
 
-    // 6. Remove trailing prepositions & relative words if left hanging
-    clean = clean.replace(/\s+(?:on|at|by|for|this|during|in|from|which|that|is|to|a|an|the)$/i, '').trim();
+    // 6. Remove trailing prepositions, punctuation & relative words if left hanging
+    clean = clean.replace(/\s+(?:on|at|by|for|this|during|in|from|which|that|is|it|to|a|an|the)$/i, '').trim();
     clean = clean.replace(/^[\s,?.!-]+|[\s,?.!-]+$/g, '').trim();
 
     // 7. Use Compromise NLP to isolate noun/action entity if messy
@@ -107,7 +123,7 @@ export function cleanEventTitle(raw: string): string {
     }
 
     // 8. Strip single question/pronoun/noise words
-    if (/^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today|is\s+my|brings\s+you)$/i.test(clean)) {
+    if (/^(?:what|when|where|who|how|why|you|here|there|something|stuff|actually|tomorrow|today|is\s+my|brings\s+you|am\s+here|sure\s+i'll|i'll\s+be\s+there)$/i.test(clean)) {
         return 'Event';
     }
 

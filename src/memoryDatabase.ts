@@ -88,6 +88,9 @@ export interface ImportantDate {
     type: 'meeting' | 'appointment' | 'reminder';
     createdAt: Date;
     description?: string;
+    details?: string;
+    speaker?: string;
+    extraNotes?: string[];
     hasExactTime?: boolean;
 }
 
@@ -186,21 +189,42 @@ export async function initDatabase(): Promise<IDBPDatabase<MemoryDB>> {
 // ===== DATES OPERATIONS =====
 export async function addDate(date: ImportantDate): Promise<void> {
     const db = await initDatabase();
-    const cleanTitle = cleanEventTitle(date.event);
-    if (!cleanTitle || cleanTitle === 'Event' || cleanTitle.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my)/i.test(cleanTitle)) {
+    const cleanTitle = cleanEventTitle(date.event, date.speaker);
+    if (!cleanTitle || cleanTitle === 'Event' || cleanTitle.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my|am\s+here)/i.test(cleanTitle)) {
         return;
     }
 
     const existing = await db.getAll('dates');
-    const isDuplicate = existing.some(d => {
-        const dClean = cleanEventTitle(d.event);
-        const sameTitle = dClean.toLowerCase() === cleanTitle.toLowerCase();
+    const match = existing.find(d => {
+        const dClean = cleanEventTitle(d.event, d.speaker);
+        const sameTitle = dClean.toLowerCase() === cleanTitle.toLowerCase() ||
+            (dClean.toLowerCase().includes(cleanTitle.toLowerCase()) || cleanTitle.toLowerCase().includes(dClean.toLowerCase()));
         const dDate = d.date ? new Date(d.date).toDateString() : '';
         const newDate = date.date ? new Date(date.date).toDateString() : '';
-        return sameTitle && (dDate === newDate || !date.date);
+        return sameTitle && (dDate === newDate || !date.date || !d.date);
     });
 
-    if (isDuplicate) {
+    if (match) {
+        // Merge descriptions / extra notes if new information is provided
+        let shouldUpdate = false;
+        if (date.description && date.description.trim() && date.description !== match.description) {
+            const currentDesc = match.description || '';
+            if (!currentDesc.includes(date.description.trim())) {
+                match.description = currentDesc ? `${currentDesc}\n• ${date.description.trim()}` : date.description.trim();
+                shouldUpdate = true;
+            }
+        }
+        if (date.details && date.details.trim() && date.details !== match.details) {
+            match.details = match.details ? `${match.details}\n${date.details.trim()}` : date.details.trim();
+            shouldUpdate = true;
+        }
+        if (date.speaker && !match.speaker) {
+            match.speaker = date.speaker;
+            shouldUpdate = true;
+        }
+        if (shouldUpdate) {
+            await db.put('dates', match);
+        }
         return;
     }
 
@@ -211,6 +235,28 @@ export async function addDate(date: ImportantDate): Promise<void> {
     });
 }
 
+export async function appendDateExtraInfo(eventIdOrTitle: string, extraUtterance: string, speaker?: string): Promise<void> {
+    if (!extraUtterance || !extraUtterance.trim()) return;
+    const db = await initDatabase();
+    const all = await db.getAll('dates');
+    
+    // Find target event by ID or title match
+    const target = all.find(d => d.id === eventIdOrTitle ||
+        cleanEventTitle(d.event).toLowerCase() === cleanEventTitle(eventIdOrTitle).toLowerCase() ||
+        d.event.toLowerCase().includes(eventIdOrTitle.toLowerCase())
+    );
+
+    if (target) {
+        const formattedNote = speaker ? `${speaker}: "${extraUtterance.trim()}"` : extraUtterance.trim();
+        const currentDesc = target.description || '';
+        if (!currentDesc.includes(extraUtterance.trim())) {
+            target.description = currentDesc ? `${currentDesc}\n• ${formattedNote}` : formattedNote;
+            if (speaker && !target.speaker) target.speaker = speaker;
+            await db.put('dates', target);
+        }
+    }
+}
+
 export async function getAllDates(): Promise<ImportantDate[]> {
     const db = await initDatabase();
     const all = await db.getAll('dates');
@@ -219,9 +265,9 @@ export async function getAllDates(): Promise<ImportantDate[]> {
     const valid: ImportantDate[] = [];
 
     for (const d of all) {
-        const clean = cleanEventTitle(d.event);
+        const clean = cleanEventTitle(d.event, d.speaker);
         const isCorrupted = !clean || clean === 'Event' || clean.length < 2 ||
-            /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my\s+birthday)/i.test(clean);
+            /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|brings\s+you|is\s+my\s+birthday|am\s+here\s+for)/i.test(clean);
 
         if (isCorrupted) {
             // Asynchronously delete corrupted record

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Users, Trash2, UserPlus, Fingerprint, HelpCircle } from 'lucide-react';
-import { addDate, generateId } from './memoryDatabase';
+import { addDate, appendDateExtraInfo, generateId } from './memoryDatabase';
 import { SpeakerDetector } from './speakerDetector';
 import { getVoicePrintEngine } from './voicePrint';
 import { extractOccasions, parseDateFromText, type Occasion } from './occasionExtractor';
@@ -96,6 +96,7 @@ export default function ConversationRecorder({
     const conversationsRef = useRef<ConversationEntry[]>([]);
     const recentQuestionsRef = useRef<{ norm: string; raw: string; ts: number; count: number }[]>([]);
     const lastRecognizedRef = useRef<string>('');
+    const activeOccasionRef = useRef<{ id: string; title: string; when: string } | null>(null);
 
     // Created ONCE — the old code rebuilt this on every render and lost state.
     const detectorRef = useRef(new SpeakerDetector());
@@ -294,24 +295,38 @@ TRANSCRIPT:
         checkRepeatedQuestion(transcript);
 
         // Real-time precise occasion extraction.
-        const occasions = extractOccasions(transcript);
-        occasions.forEach(occ => {
-            const icon = occ.type === 'reminder' ? '✅' : '📅';
-            onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
-            onOccasion?.(occ);
-            addDate({
-                id: generateId(),
-                date: (occ.date || parseDateFromText(occ.when)).toISOString(),
-                event: `${occ.title} — ${occ.when}`,
-                type: occ.type === 'reminder' ? 'reminder' : 'appointment',
-                createdAt: occ.date || new Date()
-            } as any).catch(() => {});
-        });
+        const occasions = extractOccasions(transcript, speakerName);
+        if (occasions.length > 0) {
+            occasions.forEach(occ => {
+                const icon = occ.type === 'reminder' ? '✅' : '📅';
+                const eventId = generateId();
+                activeOccasionRef.current = { id: eventId, title: occ.title, when: occ.when };
+                onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
+                onOccasion?.(occ);
+                addDate({
+                    id: eventId,
+                    date: (occ.date || parseDateFromText(occ.when)).toISOString(),
+                    event: `${occ.title} — ${occ.when}`,
+                    type: occ.type === 'reminder' ? 'reminder' : 'appointment',
+                    createdAt: occ.date || new Date(),
+                    speaker: speakerName,
+                    description: `${speakerName}: "${transcript.trim()}"`
+                } as any).catch(() => {});
+            });
+        } else if (activeOccasionRef.current) {
+            // Contextual extra info continuation during conversation
+            const isFillerGreeting = /^(?:hi|hello|hey|good\s+morning|how\s+are\s+you|what\s+is\s+your\s+name|what\s+brings\s+you\s+here)[\s?.,!]*$/i.test(transcript.trim());
+            if (!isFillerGreeting && transcript.trim().length > 3) {
+                appendDateExtraInfo(activeOccasionRef.current.title, transcript, speakerName).then(() => {
+                    onConversationUpdate(lastSummary || 'Conversation updated with additional event details.', visitorInfo || undefined);
+                }).catch(() => {});
+            }
+        }
 
         if (updated.length % 3 === 0 || updated.length === 1) {
             analyzeRef.current(updated);
         }
-    }, [identifiedPerson, getOwnerName, updateSpeaker, visitorInfo, onDateDetected, onOccasion, onPersonRecognized, checkRepeatedQuestion]);
+    }, [identifiedPerson, getOwnerName, updateSpeaker, visitorInfo, onDateDetected, onOccasion, onConversationUpdate, lastSummary, onPersonRecognized, checkRepeatedQuestion]);
 
     const speechHandlerRef = useRef(handleSpeechResult);
     useEffect(() => { speechHandlerRef.current = handleSpeechResult; }, [handleSpeechResult]);

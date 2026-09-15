@@ -11,14 +11,20 @@ import {
     Eye, 
     Camera, 
     AlertCircle, 
-    History,
-    TrendingUp,
-    Heart,
-    Shield,
-    FileText,
-    Grid,
-    CheckCircle2,
-    Sun
+    History, 
+    TrendingUp, 
+    Heart, 
+    Shield, 
+    FileText, 
+    Grid, 
+    CheckCircle2, 
+    Sun,
+    Clock,
+    X,
+    Trash2,
+    Info,
+    MessageSquare,
+    Tag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
@@ -38,6 +44,19 @@ import { cleanEventTitle } from './nlpExtractor';
 import MedicationAlarm from './MedicationAlarm';
 import RecallCard, { type RecognizedPerson } from './RecallCard';
 
+export interface TaskItem {
+    id: string;
+    time: string;
+    event: string;
+    scheduled?: string;
+    type: 'date' | 'action';
+    description?: string;
+    details?: string;
+    speaker?: string;
+    rawDate?: string;
+    createdAt?: Date;
+}
+
 type ActiveViewType = 'vision' | 'medication';
 
 function App() {
@@ -55,12 +74,13 @@ function App() {
     const [history, setHistory] = useState('');
     const historyRef = useRef(history);
     const [memoryLog, setMemoryLog] = useState<{ time: string; event: string }[]>([]);
-    const [tasks, setTasks] = useState<{ id: string; time: string; event: string; scheduled?: string; type: 'date' | 'action' }[]>([]);
+    const [tasks, setTasks] = useState<TaskItem[]>([]);
+    const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
     const loadTasks = async () => {
         try {
             const datesData = await getAllDates();
-            const mapped = datesData
+            const mapped: TaskItem[] = datesData
                 .map(d => {
                     const parsedDate = new Date(d.createdAt || d.date);
                     const timeStr = !isNaN(parsedDate.getTime())
@@ -68,20 +88,20 @@ function App() {
                         : 'Today';
 
                     let fullEvent = d.event || '';
-                    let title = cleanEventTitle(fullEvent);
+                    let title = cleanEventTitle(fullEvent, d.speaker);
                     let scheduledStr = '';
 
                     if (fullEvent.includes(' — ')) {
                         const parts = fullEvent.split(' — ');
-                        title = cleanEventTitle(parts[0]);
+                        title = cleanEventTitle(parts[0], d.speaker);
                         scheduledStr = parts[1]?.trim() || '';
                     } else if (fullEvent.includes(' – ')) {
                         const parts = fullEvent.split(' – ');
-                        title = cleanEventTitle(parts[0]);
+                        title = cleanEventTitle(parts[0], d.speaker);
                         scheduledStr = parts[1]?.trim() || '';
                     } else if (fullEvent.includes(' on ')) {
                         const parts = fullEvent.split(' on ');
-                        title = cleanEventTitle(parts[0]);
+                        title = cleanEventTitle(parts[0], d.speaker);
                         scheduledStr = parts[1]?.trim() || '';
                     }
 
@@ -97,14 +117,19 @@ function App() {
                         time: timeStr,
                         event: title,
                         scheduled: scheduledStr,
-                        type: d.type === 'appointment' ? ('date' as const) : ('action' as const)
+                        type: d.type === 'appointment' ? ('date' as const) : ('action' as const),
+                        description: d.description,
+                        details: d.details,
+                        speaker: d.speaker,
+                        rawDate: d.date,
+                        createdAt: d.createdAt
                     };
                 });
 
             // Deduplicate tasks by event + scheduled
             const seen = new Set<string>();
             const unique = mapped.filter(t => {
-                if (!t.event || t.event === 'Event' || t.event.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|brings\s+you|is\s+my|actually)/i.test(t.event)) {
+                if (!t.event || t.event === 'Event' || t.event.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|brings\s+you|is\s+my|actually|am\s+here)/i.test(t.event)) {
                     return false;
                 }
                 const key = `${t.event.toLowerCase()}|${t.scheduled || ''}`;
@@ -113,6 +138,11 @@ function App() {
                 return true;
             });
             setTasks(unique);
+            setSelectedTask(prev => {
+                if (!prev) return null;
+                const match = unique.find(t => t.id === prev.id || t.event.toLowerCase() === prev.event.toLowerCase());
+                return match || prev;
+            });
         } catch (err) {
             console.error("Error loading tasks on mount:", err);
         }
@@ -460,23 +490,44 @@ function App() {
                                                 key={task.id}
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
-                                                className="nudge-item group"
+                                                onClick={() => setSelectedTask(task)}
+                                                className="nudge-item group transition-all"
+                                                style={{ cursor: 'pointer', position: 'relative' }}
+                                                title="Click to view full event description & extra notes"
                                             >
                                                 <div className="nudge-dot" style={{ background: task.type === 'action' ? '#ef4444' : '#34d399' }} />
                                                 <div className="flex-1">
-                                                    <p className="font-medium text-sm text-balance">◆ {task.event}</p>
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <p className="font-medium text-sm text-balance">◆ {task.event}</p>
+                                                        {task.description && (
+                                                            <span style={{
+                                                                fontSize: '10px',
+                                                                background: 'rgba(52, 211, 153, 0.15)',
+                                                                color: '#34d399',
+                                                                border: '1px solid rgba(52, 211, 153, 0.3)',
+                                                                padding: '1px 6px',
+                                                                borderRadius: '999px',
+                                                                whiteSpace: 'nowrap'
+                                                            }}>
+                                                                + Info
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-dim">
                                                         {task.scheduled ? `Scheduled: ${task.scheduled}` : `Added at ${task.time}`}
                                                     </p>
                                                 </div>
                                                 <button
-                                                    onClick={async () => {
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
                                                         try {
                                                             await deleteDate(task.id);
-                                                        } catch (e) {}
+                                                        } catch (err) {}
                                                         setTasks(prev => prev.filter(t => t.id !== task.id));
+                                                        if (selectedTask?.id === task.id) setSelectedTask(null);
                                                     }}
                                                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all"
+                                                    title="Mark Complete / Dismiss"
                                                 >
                                                     <ShieldCheck size={14} className="text-dim hover:text-white" />
                                                 </button>
@@ -713,38 +764,28 @@ function App() {
                                             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                             const type = eventStr.includes('📅') ? 'date' : 'action';
 
-                                            let title = cleanEventTitle(eventStr);
+                                            let title = cleanEventTitle(eventStr, identifiedPerson?.name);
                                             let scheduledStr = '';
                                             if (eventStr.includes(' — ')) {
                                                 const parts = eventStr.split(' — ');
-                                                title = cleanEventTitle(parts[0]);
+                                                title = cleanEventTitle(parts[0], identifiedPerson?.name);
                                                 scheduledStr = parts[1]?.trim() || '';
                                             } else if (eventStr.includes(' – ')) {
                                                 const parts = eventStr.split(' – ');
-                                                title = cleanEventTitle(parts[0]);
+                                                title = cleanEventTitle(parts[0], identifiedPerson?.name);
                                                 scheduledStr = parts[1]?.trim() || '';
                                             } else if (eventStr.includes(' on ')) {
                                                 const parts = eventStr.split(' on ');
-                                                title = cleanEventTitle(parts[0]);
+                                                title = cleanEventTitle(parts[0], identifiedPerson?.name);
                                                 scheduledStr = parts[1]?.trim() || '';
                                             }
 
-                                            if (!title || title === 'Event' || title.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually)/i.test(title)) {
+                                            if (!title || title === 'Event' || title.length < 2 || /^(?:what|when|where|who|how|why|you\s+here|tomorrow\s+have|actually|is\s+my|am\s+here)/i.test(title)) {
                                                 return;
                                             }
 
-                                            setTasks(prev => {
-                                                if (prev.some(t => t.event.toLowerCase() === title.toLowerCase())) return prev;
-                                                return [...prev, {
-                                                    id: Math.random().toString(36).substr(2, 9),
-                                                    time: timeStr,
-                                                    event: title,
-                                                    scheduled: scheduledStr,
-                                                    type
-                                                }];
-                                            });
-
                                             setMemoryLog(prev => [{ time: timeStr, event: `${title}${scheduledStr ? ' (' + scheduledStr + ')' : ''}` }, ...prev].slice(0, 10));
+                                            loadTasks();
                                         }}
                                         onConversationUpdate={(summary, visitorInfo) => {
                                             setHistory(prev => `${prev}\n[Conversation] ${summary}`);
@@ -905,6 +946,233 @@ function App() {
                             onClick={() => setCognitiveAlert(null)}
                             style={{ background: 'none', border: 'none', color: 'rgba(71,63,82,0.5)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
                         >✕</button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Task Planner Event Detail Modal (Extra Info & Context) ── */}
+            <AnimatePresence>
+                {selectedTask && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedTask(null)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 9998,
+                            background: 'rgba(10, 10, 20, 0.75)',
+                            backdropFilter: 'blur(12px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '1.5rem'
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.92, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.92, opacity: 0, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: '100%',
+                                maxWidth: '520px',
+                                background: 'linear-gradient(135deg, rgba(26, 26, 46, 0.98), rgba(18, 18, 32, 0.98))',
+                                border: '1px solid rgba(255, 255, 255, 0.14)',
+                                borderRadius: '1.25rem',
+                                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(52, 211, 153, 0.15)',
+                                padding: '1.75rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.25rem',
+                                position: 'relative'
+                            }}
+                        >
+                            {/* Header */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                    <div style={{
+                                        background: selectedTask.type === 'action'
+                                            ? 'linear-gradient(135deg, #ef4444, #f97316)'
+                                            : 'linear-gradient(135deg, #10b981, #34d399)',
+                                        padding: '0.65rem',
+                                        borderRadius: '0.85rem',
+                                        boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
+                                    }}>
+                                        {selectedTask.type === 'action' ? <CheckCircle2 size={24} color="white" /> : <Calendar size={24} color="white" />}
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f3f4f6', margin: 0 }}>
+                                            {selectedTask.event}
+                                        </h3>
+                                        <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: '0.2rem 0 0 0' }}>
+                                            {selectedTask.type === 'action' ? 'Action / Reminder' : 'Upcoming Event & Occasion'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedTask(null)}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '0.5rem',
+                                        padding: '0.4rem',
+                                        cursor: 'pointer',
+                                        color: '#9ca3af',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gap: '0.75rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: '0.85rem',
+                                padding: '0.85rem 1rem'
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: '0.7rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <Calendar size={12} color="#34d399" /> Scheduled Time
+                                    </span>
+                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f3f4f6', margin: '0.2rem 0 0 0' }}>
+                                        {selectedTask.scheduled || 'Today / Ongoing'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span style={{ fontSize: '0.7rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <Clock size={12} color="#818cf8" /> Recorded At
+                                    </span>
+                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f3f4f6', margin: '0.2rem 0 0 0' }}>
+                                        {selectedTask.time}
+                                    </p>
+                                </div>
+                                {selectedTask.speaker && (
+                                    <div style={{ gridColumn: 'span 2' }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            <User size={12} color="#ec4899" /> Discussed With / Spoken By
+                                        </span>
+                                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f3f4f6', margin: '0.2rem 0 0 0' }}>
+                                            {selectedTask.speaker}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Description & Extra Info Section */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <MessageSquare size={14} color="#38bdf8" /> Spoken Details & Additional Information
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', color: '#34d399', background: 'rgba(52,211,153,0.1)', padding: '2px 8px', borderRadius: '999px', border: '1px solid rgba(52,211,153,0.25)' }}>
+                                        Live Memory Sync
+                                    </span>
+                                </div>
+
+                                <div style={{
+                                    background: 'rgba(15, 23, 42, 0.65)',
+                                    border: '1px solid rgba(56, 189, 248, 0.2)',
+                                    borderRadius: '0.85rem',
+                                    padding: '1rem',
+                                    maxHeight: '180px',
+                                    overflowY: 'auto'
+                                }}>
+                                    {selectedTask.description ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            {selectedTask.description.split('\n').map((line, idx) => (
+                                                <div key={idx} style={{
+                                                    fontSize: '0.85rem',
+                                                    color: '#e2e8f0',
+                                                    lineHeight: 1.5,
+                                                    display: 'flex',
+                                                    alignItems: 'flex-start',
+                                                    gap: '0.5rem'
+                                                }}>
+                                                    <span style={{ color: '#38bdf8', marginTop: '2px' }}>💬</span>
+                                                    <span>{line.replace(/^[•\-\s]+/, '')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.82rem' }}>
+                                            <Info size={16} style={{ flexShrink: 0 }} />
+                                            <span>
+                                                Event detected from speech. Any additional info mentioned by the visitor (e.g. DJ party, venue, timing) is automatically recorded here.
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer Actions */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await deleteDate(selectedTask.id);
+                                        } catch (e) {}
+                                        setTasks(prev => prev.filter(t => t.id !== selectedTask.id));
+                                        setSelectedTask(null);
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        padding: '0.55rem 1rem',
+                                        borderRadius: '0.65rem',
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                        color: '#f87171',
+                                        fontSize: '0.82rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                    Delete Task
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await deleteDate(selectedTask.id);
+                                        } catch (e) {}
+                                        setTasks(prev => prev.filter(t => t.id !== selectedTask.id));
+                                        setSelectedTask(null);
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        padding: '0.55rem 1.25rem',
+                                        borderRadius: '0.65rem',
+                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontSize: '0.82rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <CheckCircle2 size={14} />
+                                    Mark Completed
+                                </button>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
