@@ -147,6 +147,15 @@ app.get('/api/download/template-pdf', (_req, res) => {
     }
 });
 
+app.get('/api/download/worsening-pdf', (_req, res) => {
+    const filePath = path.join(__dirname, '..', 'sample_reports', 'Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, 'Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf');
+    } else {
+        res.status(404).json({ error: 'Worsening PDF not found' });
+    }
+});
+
 // Direct file upload endpoint (PDF, Word, TXT)
 app.post('/api/ocr/upload', upload.single('reportFile'), async (req, res) => {
     try {
@@ -485,9 +494,12 @@ app.get('/', (_req, res) => {
                     <div style="font-size: 12px; font-weight: 700; color: #c084fc;">🏥 Vasundhara Hospital Format</div>
                     <div style="font-size: 11px; color: #94a3b8;">Real clinical template matching specified structure</div>
                 </div>
-                <div style="display: flex; gap: 6px;">
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                     <a href="/api/download/sample-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sample.pdf" style="text-decoration: none; background: #6366f1; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📥 Sample PDF
+                        📥 Sample PDF (Baseline)
+                    </a>
+                    <a href="/api/download/worsening-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf" style="text-decoration: none; background: #dc2626; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        🚨 Worsening Follow-Up PDF
                     </a>
                     <a href="/api/download/template-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Template.pdf" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                         📄 Blank PDF
@@ -507,7 +519,8 @@ app.get('/', (_req, res) => {
                 <span style="font-size: 12px; font-weight: 600; color: #94a3b8;">Or load clinical demo presets:</span>
             </div>
             <div class="btn-group">
-                <button class="btn-preset" style="border-color: #a855f7; color: #d8b4fe;" onclick="loadSample(4)">⭐ Vasundhara Hospital Format</button>
+                <button class="btn-preset" style="border-color: #a855f7; color: #d8b4fe;" onclick="loadSample(4)">⭐ Rajesh Verma (Baseline: 19/30)</button>
+                <button class="btn-preset" style="border-color: #ef4444; color: #fca5a5;" onclick="loadSample(5)">🚨 Rajesh Verma (Worsening: 13/30)</button>
                 <button class="btn-preset" onclick="loadSample(1)">3-Visit Longitudinal</button>
                 <button class="btn-preset" onclick="loadSample(2)">Rapid Early-Onset</button>
                 <button class="btn-preset" onclick="loadSample(3)">Mild MCI</button>
@@ -703,7 +716,55 @@ Patient has been diagnosed with Alzheimer's Disease. It is a progressive conditi
 
 ___________________________
 Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
-Date: 14 / 09 / 2026\`
+Date: 14 / 09 / 2026\`,
+
+            5: \`Vasundhara Hospital, Ghaziabad
+Alzheimer's Disease Medical Report - Longitudinal Follow-Up Assessment
+
+Patient Details:
+Name: Rajesh K. Verma
+Age/Gender: 73 years / Male
+Report Date: 18 / 03 / 2027
+
+Consulting Physician:
+Dr. A. K. Banerjee
+Specialization: Neurology
+Hospital: Vasundhara Hospital, Ghaziabad
+
+Medical History:
+- Memory decline worsening significantly over the last 6 months (20 months total history).
+- Complete loss of short-term recall; unable to recognize close family members, home address, or current year.
+- Marked behavioral changes: evening agitation (sundowning), confusion, and wandering episodes requiring locked doors.
+- Total dependency in activities of daily living (ADLs) including medication administration, financial management, and dressing.
+
+Physical & Cognitive Examination:
+- Blood Pressure: 138/88 mmHg
+- Pulse: 78 per minute
+- Cognitive Test (MMSE Score): 13 / 30 (Severe Deterioration: -6 points from 19/30 on 14/09/2026)
+• Orientation: 2 / 10
+• Memory: 0 / 6
+• Attention: 2 / 5
+• Language: 6 / 9
+
+Lab & Imaging Reports:
+- MRI Brain (Follow-Up): Severe bilateral hippocampal atrophy (MTA Grade 3/4), prominent temporal horn enlargement, severe generalized cortical atrophy
+- Blood Tests: Metabolic panel, Vitamin B12, Thyroid profile - Normal / Non-contributory
+- EEG: Moderate-to-severe generalized theta-delta slowing across fronto-temporal regions
+
+Diagnosis:
+Alzheimer's Disease (Moderate-to-Advanced / Severe Stage, Rapid Disease Progression).
+
+Treatment Plan:
+1. Medications: Donepezil 10mg daily + Memantine 20mg daily (titrated upward). Quetiapine 12.5mg bedtime for sundowning agitation.
+2. Care & Safety Support: Full-time caregiver assistance required. Strict safety protocol (door alarms, GPS tracker, fall prevention).
+3. Follow-up: Re-evaluation in 3 months for behavioral and cognitive staging.
+
+Conclusion:
+Patient exhibits a marked, rapid cognitive and functional decline over the past 6-month interval. Immediate 24/7 family/caregiver support and safety interventions are essential.
+
+___________________________
+Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
+Date: 18 / 03 / 2027\`
         };
 
         function loadSample(num) {
