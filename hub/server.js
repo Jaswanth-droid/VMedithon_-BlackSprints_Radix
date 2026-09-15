@@ -174,6 +174,15 @@ app.get('/api/download/sunita-pdf', (_req, res) => {
     }
 });
 
+app.get('/api/download/sunita-followup-pdf', (_req, res) => {
+    const filePath = path.join(__dirname, '..', 'sample_reports', 'Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma_FollowUp.pdf');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, 'Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma_FollowUp.pdf');
+    } else {
+        res.status(404).json({ error: 'Sunita Sharma Follow-Up PDF not found' });
+    }
+});
+
 // Direct file upload endpoint (PDF, Word, TXT)
 app.post('/api/ocr/upload', upload.single('reportFile'), async (req, res) => {
     try {
@@ -513,17 +522,20 @@ app.get('/', (_req, res) => {
                     <div style="font-size: 11px; color: #94a3b8;">Real clinical template matching specified structure</div>
                 </div>
                 <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <a href="/api/download/sunita-pptx" download="Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx" style="text-decoration: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📊 Sunita Sharma Case PPT
-                    </a>
                     <a href="/api/download/sunita-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma.pdf" style="text-decoration: none; background: #059669; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📄 Sunita Sharma PDF
+                        📄 Sunita Sharma (Visit 1 PDF)
+                    </a>
+                    <a href="/api/download/sunita-followup-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma_FollowUp.pdf" style="text-decoration: none; background: #dc2626; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        🚨 Sunita Sharma (Follow-Up PDF)
+                    </a>
+                    <a href="/api/download/sunita-pptx" download="Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx" style="text-decoration: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📊 Sunita Case PPT
                     </a>
                     <a href="/api/download/sample-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sample.pdf" style="text-decoration: none; background: #6366f1; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📥 Rajesh (Baseline PDF)
+                        📥 Rajesh (Baseline)
                     </a>
-                    <a href="/api/download/worsening-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf" style="text-decoration: none; background: #dc2626; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        🚨 Rajesh (Worsening PDF)
+                    <a href="/api/download/worsening-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf" style="text-decoration: none; background: #b91c1c; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        🚨 Rajesh (Worsening)
                     </a>
                     <a href="/api/download/template-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Template.pdf" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                         📄 Blank Template
@@ -543,10 +555,10 @@ app.get('/', (_req, res) => {
                 <span style="font-size: 12px; font-weight: 600; color: #94a3b8;">Or load clinical demo presets:</span>
             </div>
             <div class="btn-group">
-                <button class="btn-preset" style="border-color: #10b981; color: #6ee7b7;" onclick="loadSample(6)">🌸 Sunita Sharma (MMSE: 21/30)</button>
-                <button class="btn-preset" style="border-color: #a855f7; color: #d8b4fe;" onclick="loadSample(4)">⭐ Rajesh Verma (Baseline: 19/30)</button>
-                <button class="btn-preset" style="border-color: #ef4444; color: #fca5a5;" onclick="loadSample(5)">🚨 Rajesh Verma (Worsening: 13/30)</button>
-                <button class="btn-preset" onclick="loadSample(1)">3-Visit Longitudinal</button>
+                <button class="btn-preset" style="border-color: #10b981; color: #6ee7b7;" onclick="loadSample(6)">🌸 Sunita (Visit 1: 21/30)</button>
+                <button class="btn-preset" style="border-color: #f43f5e; color: #fda4af;" onclick="loadSample(7)">🚨 Sunita (Follow-Up: 15/30)</button>
+                <button class="btn-preset" style="border-color: #a855f7; color: #d8b4fe;" onclick="loadSample(4)">⭐ Rajesh (Visit 1: 19/30)</button>
+                <button class="btn-preset" style="border-color: #ef4444; color: #fca5a5;" onclick="loadSample(5)">🚨 Rajesh (Follow-Up: 13/30)</button>
             </div>
 
             <label style="font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; display: block;">Report Extracted Text / Edit:</label>
@@ -835,7 +847,56 @@ Patient has been diagnosed with Early-to-Moderate Alzheimer's Disease. With stru
 
 ___________________________
 Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
-Date: 10 / 11 / 2026\`
+Date: 10 / 11 / 2026\`,
+
+            7: \`Vasundhara Hospital, Ghaziabad
+Alzheimer's Disease Medical Report - Follow-Up Assessment
+
+Patient Details:
+Name: Mrs. Sunita Sharma
+Age/Gender: 69 years / Female
+Report Date: 12 / 05 / 2027
+
+Consulting Physician:
+Dr. A. K. Banerjee
+Specialization: Neurology (Cognitive Disorders)
+Hospital: Vasundhara Hospital, Ghaziabad
+
+Medical History:
+- Patient re-evaluated after 6 months; family reports accelerated memory loss and increased daily assistance needs.
+- Unable to recognize grandchildren's names consistently; frequently misplaces essentials and accuses others of taking them.
+- Disorientation expanded to indoor rooms at night; attempted wandering outside front door on two occasions.
+- Increased emotional agitation during evenings (sundowning); requires continuous prompting for bathing and dressing.
+
+Physical & Cognitive Examination:
+- Blood Pressure: 130/84 mmHg
+- Pulse: 76 per minute
+- Cognitive Test (MMSE Score): 15 / 30 (Moderate Stage Progression: -6 points drop from 21/30 on 10/11/2026)
+• Orientation: 3 / 10 (Disoriented to date, year, season, and hospital department)
+• Memory: 1 / 6 (Immediate registration 2/3, delayed recall 0/3 after distraction)
+• Attention: 3 / 5 (Unable to complete serial subtractions without repeated cues)
+• Language: 8 / 9 (Mild word-finding hesitation; reading comprehension reduced)
+
+Lab & Imaging Reports:
+- MRI Brain (Follow-Up): Moderate-to-severe bilateral hippocampal volume loss (MTA Grade 3), increased ventricular enlargement.
+- Blood Tests: Routine metabolic panel, electrolytes, serum Vitamin B12 - Within normal limits.
+- EEG: Moderate generalized background slowing in fronto-temporal regions consistent with progression.
+
+Diagnosis:
+Alzheimer's Disease (Moderate Stage, Active Progression).
+
+Treatment Plan:
+1. Medications: Increase Donepezil to 10mg daily at bedtime + Add Memantine 10mg daily morning (titrate to 20mg after 2 weeks).
+2. Safety & Supervision: Full-time caregiver assistance recommended; install door sensors and safety locks.
+3. Behavioral Care: Maintain calm environment during evening hours; avoid confronting memory confusion.
+4. Follow-up: Neurological reassessment scheduled in 3-4 months.
+
+Conclusion:
+Follow-up examination confirms active disease progression over the 6-month period. Dual combination therapy (Donepezil + Memantine) has been initiated along with enhanced daily supervision to ensure patient safety and quality of life.
+
+___________________________
+Doctor's Signature: Dr. A. K. Banerjee (MD, DM Neuro)
+Date: 12 / 05 / 2027\`
         };
 
         function loadSample(num) {
