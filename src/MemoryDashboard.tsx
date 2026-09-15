@@ -9,6 +9,7 @@ import {
     ConversationRecord,
     PersonRecord
 } from './memoryDatabase';
+import { cleanEventTitle } from './nlpExtractor';
 
 interface MemoryDashboardProps {
     isOpen: boolean;
@@ -427,8 +428,8 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                                 MEMORY DETAILS
                                             </div>
                                             {dayEvents.map((event, idx) => {
-                                                const rawPart = event.event.replace(/^[📅✅]\s*/, '').split(/\s+on\s+/i)[0];
-                                                // If the result is just a date (contains month names), use the type as a fallback
+                                                const cleaned = cleanEventTitle(event.event);
+                                                const rawPart = cleaned.split(/\s+on\s+/i)[0];
                                                 const dateRegex = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i;
                                                 const isJustDate = dateRegex.test(rawPart) && rawPart.length < 15;
                                                 const displayName = isJustDate
@@ -472,7 +473,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '100px', overflowY: 'auto' }}>
                             {dates.slice(0, 3).map((date) => (
                                 <div key={date.id} style={{ fontSize: '11px', padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <p style={{ color: 'white', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{date.event}</p>
+                                    <p style={{ color: 'white', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanEventTitle(date.event)}</p>
                                     <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>{date.date}</p>
                                 </div>
                             ))}

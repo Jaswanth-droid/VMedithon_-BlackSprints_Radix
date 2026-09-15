@@ -6,13 +6,22 @@ into spoken TTS audio cues using pyttsx3 (offline, no API key needed).
 
 import asyncio
 import os
+import sys
 import threading
 
 import pyttsx3
 import socketio
 
+# Ensure UTF-8 output on Windows console
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 # ── Configuration ─────────────────────────────────────────────────────────────
-HUB_URL = os.getenv("HUB_URL", "http://localhost:3001")
+HUB_URL = os.getenv("HUB_URL", "http://localhost:5000")
 
 # ── TTS engine (runs in a background thread to avoid blocking the event loop) ─
 _tts_engine = pyttsx3.init()

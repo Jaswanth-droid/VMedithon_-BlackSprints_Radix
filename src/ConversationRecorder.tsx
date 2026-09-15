@@ -3,100 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Calendar, Users, Trash2 } from 'lucide-react';
 import { addDate, generateId } from './memoryDatabase';
 import { SpeakerDetector } from './speakerDetector';
+import {
+    parseDateFromText,
+    cleanEventTitle,
+    extractTasksAndDatesNLP,
+    formatHumanDate
+} from './nlpExtractor';
 
-// Helper function to parse dates from text like "Feb 16", "tomorrow", "next Monday"
-function parseDateFromText(text: string): Date {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const lower = text.toLowerCase();
-
-    // Month name mapping
-    const months: Record<string, number> = {
-        'jan': 0, 'january': 0, 'feb': 1, 'february': 1, 'mar': 2, 'march': 2,
-        'apr': 3, 'april': 3, 'may': 4, 'jun': 5, 'june': 5, 'jul': 6, 'july': 6,
-        'aug': 7, 'august': 7, 'sep': 8, 'sept': 8, 'september': 8,
-        'oct': 9, 'october': 9, 'nov': 10, 'november': 10, 'dec': 11, 'december': 11
-    };
-
-    // Check for relative dates
-    if (lower.includes('today')) return now;
-    if (lower.includes('tomorrow')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 1);
-        return d;
-    }
-    if (lower.includes('day after tomorrow')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 2);
-        return d;
-    }
-    if (lower.includes('next week')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 7);
-        return d;
-    }
-    if (lower.includes('next month')) {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() + 1);
-        return d;
-    }
-
-    // Check for day names (next Monday, this Friday, etc.)
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    for (let i = 0; i < dayNames.length; i++) {
-        if (lower.includes(dayNames[i])) {
-            const d = new Date(now);
-            const currentDay = d.getDay();
-            let daysUntil = i - currentDay;
-            if (daysUntil <= 0) daysUntil += 7; // Next occurrence
-            d.setDate(d.getDate() + daysUntil);
-            return d;
-        }
-    }
-
-    // Try to parse "Month Day" format (e.g., "Feb 16", "February 16th")
-    const monthDayMatch = text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t)?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{1,2})(?:st|nd|rd|th)?\b/i);
-    if (monthDayMatch) {
-        const monthStr = monthDayMatch[1].toLowerCase().substring(0, 3);
-        const day = parseInt(monthDayMatch[2]);
-        const month = months[monthStr];
-        if (month !== undefined && day >= 1 && day <= 31) {
-            // Use current year, or next year if the date has passed
-            let year = currentYear;
-            const targetDate = new Date(year, month, day);
-            if (targetDate < now) {
-                year++;
-            }
-            return new Date(year, month, day);
-        }
-    }
-
-    // Try to parse "Day Month" format (e.g., "16 Feb", "16th February")
-    const dayMonthMatch = text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t)?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
-    if (dayMonthMatch) {
-        const day = parseInt(dayMonthMatch[1]);
-        const monthStr = dayMonthMatch[2].toLowerCase().substring(0, 3);
-        const month = months[monthStr];
-        if (month !== undefined && day >= 1 && day <= 31) {
-            let year = currentYear;
-            const targetDate = new Date(year, month, day);
-            if (targetDate < now) {
-                year++;
-            }
-            return new Date(year, month, day);
-        }
-    }
-
-    // Try standard date formats (M/D/YYYY, YYYY-MM-DD, etc.)
-    const standardDate = new Date(text);
-    if (!isNaN(standardDate.getTime())) {
-        return standardDate;
-    }
-
-    // Default to today if no date could be parsed
-    console.log('[Date Parser] Could not parse date from:', text, '- using today');
-    return now;
-}
+export { parseDateFromText, cleanEventTitle, extractTasksAndDatesNLP };
 
 interface ConversationEntry {
     speaker: string;
@@ -104,33 +18,18 @@ interface ConversationEntry {
     timestamp: Date;
 }
 
-// Helper: Generate Mock AI Response using Regex
+// Helper: Generate Mock AI Response using NLP
 const generateMockResponse = (text: string, visitorName: string, visitorRelation: string): string => {
-    const lowerText = text.toLowerCase();
-    let mockDate = "None";
-    let mockAction = "None";
+    const extracted = extractTasksAndDatesNLP(text);
+    const dateEvents = extracted.filter(e => e.type === 'date').map(e => e.formattedEvent);
+    const actionEvents = extracted.filter(e => e.type === 'action').map(e => e.formattedEvent);
 
-    // Extract dates using heuristic (global match) - now finds ALL dates
-    const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi;
-    const matches = text.match(dateRegex);
-
-    if (matches) {
-        const foundDates = matches.map(m => m.trim());
-        const uniqueDates = [...new Set(foundDates)];
-        mockDate = uniqueDates.join(', ');
-    } else if (text.match(/((?:today|tomorrow|next week|next month))/i)) {
-        const relMatch = text.match(/((?:today|tomorrow|next week|next month))/i);
-        mockDate = relMatch ? relMatch[0] : "None";
-    }
-
-    // Extract possible actions
-    if (lowerText.includes('remind') || lowerText.includes('remember') || lowerText.includes('don\'t forget')) {
-        mockAction = text;
-    }
+    const mockDate = dateEvents.length > 0 ? dateEvents.join(', ') : "None";
+    const mockAction = actionEvents.length > 0 ? actionEvents.join(', ') : "None";
 
     return `
 VISITOR: ${visitorName}, ${visitorRelation}
-SUMMARY: You had a conversation with ${visitorName}. You discussed ${mockDate !== 'None' ? 'dates: ' + mockDate : 'various topics'}.
+SUMMARY: You had a conversation with ${visitorName}. You discussed ${mockDate !== 'None' ? 'events: ' + mockDate : 'various topics'}.
 DATES: ${mockDate}
 ACTIONS: ${mockAction}
 `;
@@ -278,15 +177,13 @@ ${conversationText}
 Provide a gentle, caring summary for ${patientName} explaining:
 1. WHO they were talking to (use the visitor's name and relationship if known)
 2. WHAT they discussed (key topics in simple terms)
-3. Any IMPORTANT things to remember (dates, promises, tasks)
-
-Also, double check if the "You" and "Visitor" speakers are logically correct. For example, if someone says "Hi User", they must be the Visitor. If there are mistakes, fix them in the transcript.
+3. Any IMPORTANT events or tasks to remember (e.g., extract clean event titles like "Birthday on Jan 16", "Doctor Appointment on Friday", NOT conversational fragments like "I have a")
 
 Respond in this exact format:
 VISITOR: [visitor's name and their relationship to ${patientName}, or "Unknown visitor" if not clear]
 SUMMARY: [A warm, simple 1-2 sentence summary written as if speaking directly to ${patientName}]
-DATES: [Any dates, appointments, or deadlines mentioned, or "None"]
-ACTIONS: [Any promises made or tasks to do, or "None"]
+DATES: [Specific events and their dates formatted as "Event Name on Date" (e.g. "Birthday on Jan 16"), or "None"]
+ACTIONS: [Action items/tasks without conversational pronouns (e.g. "Take blood pressure medication"), or "None"]
 TRANSCRIPT:
 [Speaker]: "Corrected text"
 ...`;
@@ -316,43 +213,12 @@ TRANSCRIPT:
             // Parse the response (from Gemini or Mock)
             const visitorMatch = response.match(/VISITOR:\s*(.+?)(?=SUMMARY:|$)/s);
             const summaryMatch = response.match(/SUMMARY:\s*(.+?)(?=DATES:|$)/s);
-            let datesMatch = response.match(/DATES:\s*(.+?)(?=ACTIONS:|$)/s); // Let allows modification
+            let datesMatch = response.match(/DATES:\s*(.+?)(?=ACTIONS:|$)/s);
+            const actionsMatch = response.match(/ACTIONS:\s*(.+?)(?=TRANSCRIPT:|$)/s);
 
-            // HYBRID ENHANCEMENT: Always run Regex for dates and append to Gemini's result
-            const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi;
-            const regexMatches = conversationText.match(dateRegex);
-
-            if (regexMatches) {
-                const foundDates = regexMatches.map(m => m.trim());
-                const uniqueRegexDates = [...new Set(foundDates)];
-
-                console.log('[Hybrid] Regex found:', uniqueRegexDates.join(', '));
-
-                let combinedDates = '';
-                if (datesMatch) {
-                    let existingDates = datesMatch[1].trim();
-                    if (existingDates.toLowerCase().includes('none')) {
-                        // Gemini found nothing, replace with Regex result
-                        console.log('[Hybrid] Gemini missed dates. Using Regex.');
-                        combinedDates = uniqueRegexDates.join(', ');
-                    } else {
-                        console.log('[Hybrid] Merging Gemini dates with Regex dates.');
-                        const existingDateArray = existingDates.split(',').map(d => d.trim()).filter(d => d);
-                        const allDates = [...new Set([...existingDateArray, ...uniqueRegexDates])];
-                        combinedDates = allDates.join(', ');
-                    }
-                } else {
-                    // No datesMatch from Gemini at all, just use regex dates
-                    combinedDates = uniqueRegexDates.join(', ');
-                }
-
-                // Update datesMatch to reflect the combined result for subsequent processing
-                // Only merge if we actually found something worth adding
-                if (combinedDates) {
-                    datesMatch = [`DATES: ${combinedDates}`, combinedDates] as RegExpMatchArray;
-                }
-            }
-            const actionsMatch = response.match(/ACTIONS:\s*(.+?)$/s);
+            // HYBRID NLP ENHANCEMENT: Extract clean structured tasks using NLP extractor
+            const nlpExtracted = extractTasksAndDatesNLP(conversationText);
+            console.log('[Hybrid NLP] Extracted tasks & dates:', nlpExtracted);
 
             let extractedVisitor = visitorInfo;
             if (visitorMatch) {
@@ -372,57 +238,77 @@ TRANSCRIPT:
                 onConversationUpdate(summary, extractedVisitor || undefined);
             }
 
-            if (datesMatch) {
-                const datesText = datesMatch[1].trim();
-                console.log('[Date Extraction] Dates text:', datesText);
-                if (datesText && !datesText.toLowerCase().includes('none')) {
-                    // Split by newlines OR commas to catch various formatting
-                    const dateLines = datesText.split(/\n|,/).filter((l: string) => l.trim());
-                    console.log('[Date Extraction] Found date lines:', dateLines);
-                    dateLines.forEach(async (dateLine: string) => {
-                        const cleanedDate = dateLine.replace(/^-\s*|^[📅✅]\s*/, '').trim();
-                        console.log('[Date Extraction] Processing:', cleanedDate);
+            // Process and save all NLP-extracted dates and events to IndexedDB
+            const processedEvents = new Set<string>();
 
-                        // Parse the actual date from the text
-                        const parsedDate = parseDateFromText(cleanedDate);
-                        console.log('[Date Extraction] Parsed date:', parsedDate);
+            // 1. Process NLP rule-based extractions
+            for (const item of nlpExtracted) {
+                if (!processedEvents.has(item.formattedEvent.toLowerCase())) {
+                    processedEvents.add(item.formattedEvent.toLowerCase());
+                    onDateDetected(item.type === 'date' ? `📅 ${item.formattedEvent}` : `✅ ${item.formattedEvent}`);
 
-                        // onDateDetected(`📅 ${cleanedDate}`);
-                        // Save to IndexedDB with the ACTUAL event date
-                        try {
-                            await addDate({
-                                id: generateId(),
-                                date: parsedDate.toISOString(), // Use ISO string for reliability
-                                event: cleanedDate,
-                                type: 'appointment',
-                                createdAt: parsedDate // Store the actual event date here!
-                            });
-                            console.log('[Date Extraction] ✅ Date saved for:', parsedDate.toISOString());
-                        } catch (error) {
-                            console.error('[Date Extraction] ❌ Error saving date:', error);
-                        }
-                    });
+                    try {
+                        await addDate({
+                            id: generateId(),
+                            date: item.parsedDate.toISOString(),
+                            event: item.formattedEvent,
+                            type: item.type === 'date' ? 'appointment' : 'reminder',
+                            createdAt: item.parsedDate
+                        });
+                        console.log('[NLP Extractor] ✅ Event saved to DB:', item.formattedEvent);
+                    } catch (dbErr) {
+                        console.error('[NLP Extractor] ❌ Error saving event:', dbErr);
+                    }
                 }
             }
 
+            // 2. Process Gemini DATES if any additional ones exist
+            if (datesMatch) {
+                const datesText = datesMatch[1].trim();
+                if (datesText && !datesText.toLowerCase().includes('none')) {
+                    const dateLines = datesText.split(/\n|,/).map(l => l.trim()).filter(Boolean);
+                    for (const rawLine of dateLines) {
+                        const cleaned = cleanEventTitle(rawLine);
+                        if (cleaned && !cleaned.toLowerCase().includes('none') && !processedEvents.has(cleaned.toLowerCase())) {
+                            processedEvents.add(cleaned.toLowerCase());
+                            const parsed = parseDateFromText(cleaned);
+                            onDateDetected(`📅 ${cleaned}`);
+                            try {
+                                await addDate({
+                                    id: generateId(),
+                                    date: parsed.toISOString(),
+                                    event: cleaned,
+                                    type: 'appointment',
+                                    createdAt: parsed
+                                });
+                            } catch (e) {}
+                        }
+                    }
+                }
+            }
+
+            // 3. Process Gemini ACTIONS
             if (actionsMatch) {
                 const actionsText = actionsMatch[1].trim();
                 if (actionsText && !actionsText.toLowerCase().includes('none')) {
-                    // Split by newlines OR commas
-                    const actionLines = actionsText.split(/\n|,/).filter((l: string) => l.trim());
-                    actionLines.forEach(async (actionLine: string) => {
-                        const cleanedAction = actionLine.replace(/^-\s*|^[📅✅]\s*/, '').trim();
-                        const parsedDate = parseDateFromText(cleanedAction);
-                        // onDateDetected(`✅ ${cleanedAction}`);
-                        // Save to IndexedDB with the parsed date
-                        await addDate({
-                            id: generateId(),
-                            date: parsedDate.toISOString(), // Use ISO string for reliability
-                            event: cleanedAction,
-                            type: 'reminder',
-                            createdAt: parsedDate
-                        });
-                    });
+                    const actionLines = actionsText.split(/\n|,/).map(l => l.trim()).filter(Boolean);
+                    for (const rawLine of actionLines) {
+                        const cleaned = cleanEventTitle(rawLine);
+                        if (cleaned && !cleaned.toLowerCase().includes('none') && !processedEvents.has(cleaned.toLowerCase())) {
+                            processedEvents.add(cleaned.toLowerCase());
+                            const parsed = parseDateFromText(cleaned);
+                            onDateDetected(`✅ ${cleaned}`);
+                            try {
+                                await addDate({
+                                    id: generateId(),
+                                    date: parsed.toISOString(),
+                                    event: cleaned,
+                                    type: 'reminder',
+                                    createdAt: parsed
+                                });
+                            } catch (e) {}
+                        }
+                    }
                 }
             }
 
@@ -501,33 +387,12 @@ TRANSCRIPT:
             return updated;
         });
 
-        // Real-time Task Extraction
-        const foundTasks: string[] = [];
-        const segments = transcript.split(/\b(?:and|then|also)\b/i);
-
-        segments.forEach(segment => {
-            const cleanSegment = segment.trim();
-            if (!cleanSegment) return;
-
-            const timeTerms = '(?:tomorrow|tonight|today|next\\s+(?:week|month)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)';
-            const dateRegex = new RegExp(`\\b([a-zA-Z\\s]{3,30})\\s+(on|at|by|for|this)\\s+(${timeTerms}(?:\\s+\\d{1,2}(?:st|nd|rd|th)?)?)`, 'gi');
-
-            let match;
-            while ((match = dateRegex.exec(cleanSegment)) !== null) {
-                const taskName = match[1].trim();
-                const timeInfo = match[3].trim();
-                if (taskName.length > 2 && !['what', 'when', 'how', 'going'].includes(taskName.toLowerCase())) {
-                    foundTasks.push(`📅 ${taskName} on ${timeInfo}`);
-                }
-            }
-
-            const actionRegex = /\b(?:remember to|don't forget to|remind me to)\s+([a-zA-Z\s]{3,40})/gi;
-            while ((match = actionRegex.exec(cleanSegment)) !== null) {
-                foundTasks.push(`✅ ${match[1].trim()}`);
-            }
+        // Real-time Task & Event Extraction using NLP
+        const extracted = extractTasksAndDatesNLP(transcript);
+        extracted.forEach(item => {
+            const formatted = item.type === 'date' ? `📅 ${item.formattedEvent}` : `✅ ${item.formattedEvent}`;
+            onDateDetected(formatted);
         });
-
-        foundTasks.forEach(task => onDateDetected(task));
     }, [currentSpeaker, conversations.length, identifiedPerson, analyzeConversation, onDateDetected]);
 
     // Handler ref to avoid stale listeners
@@ -557,14 +422,12 @@ TRANSCRIPT:
             recognitionRef.current.onerror = (event: any) => {
                 console.error('Speech recognition error:', event.error);
                 if (event.error !== 'no-speech') {
-                    // Update state if error occurs (ref will be updated by effect)
                     setIsListening(false);
                 }
             };
 
             recognitionRef.current.onend = () => {
                 if (isListeningRef.current) {
-                    // Restart if still supposed to be listening
                     console.log('Recognition ended but should be listening, restarting...');
                     try {
                         recognitionRef.current.start();
@@ -593,90 +456,38 @@ TRANSCRIPT:
 
             // When stopping, save the conversation for recall
             if (conversations.length > 0) {
-                // Create a simple summary from conversation if Gemini hasn't analyzed yet
                 const conversationText = conversations
                     .map(c => `${c.speaker}: "${c.text}"`)
                     .join(' | ');
 
-                // Improved date extraction with context
+                // Post-process all sentences using robust NLP extractor
                 const fullText = conversations.map(c => c.text).join(' ');
-                const datePatterns = [
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b\d{1,2}(st|nd|rd|th)?\s+(of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(tomorrow|next\s+week|next\s+month|today|tonight)\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi
-                ];
+                const nlpTasks = extractTasksAndDatesNLP(fullText);
 
-                const foundTasks: string[] = [];
+                nlpTasks.forEach(async (taskItem) => {
+                    const formatted = taskItem.type === 'date' ? `📅 ${taskItem.formattedEvent}` : `✅ ${taskItem.formattedEvent}`;
+                    onDateDetected(formatted);
 
-                // Pre-process: split by common conjunctions to handle "Doc on Friday and Lunch on Monday"
-                const segments = fullText.split(/\b(?:and|then|also)\b/i);
-
-                segments.forEach(segment => {
-                    const cleanSegment = segment.trim();
-                    if (!cleanSegment) return;
-
-                    // Improved non-greedy regex for dates
-                    const timeTerms = '(?:tomorrow|tonight|today|next\\s+(?:week|month)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)';
-                    const dateRegex = new RegExp(`\\b([a-zA-Z\\s]{3,30})\\s+(on|at|by|for|this)\\s+(${timeTerms}(?:\\s+\\d{1,2}(?:st|nd|rd|th)?)?)`, 'gi');
-
-                    let match;
-                    while ((match = dateRegex.exec(cleanSegment)) !== null) {
-                        const taskName = match[1].trim();
-                        const timeInfo = match[3].trim();
-                        if (taskName.length > 2 && !['what', 'when', 'how', 'going'].includes(taskName.toLowerCase())) {
-                            const task = `📅 ${taskName} on ${timeInfo}`;
-                            if (!foundTasks.includes(task)) foundTasks.push(task);
-                        }
+                    try {
+                        await addDate({
+                            id: generateId(),
+                            date: taskItem.parsedDate.toISOString(),
+                            event: taskItem.formattedEvent,
+                            type: taskItem.type === 'date' ? 'appointment' : 'reminder',
+                            createdAt: taskItem.parsedDate
+                        });
+                    } catch (err) {
+                        console.error('[ConversationRecorder] Error saving task:', err);
                     }
-
-                    // Action items: "remind me to..."
-                    const actionRegex = /\b(?:remember to|don't forget to|remind me to)\s+([a-zA-Z\s]{3,40})/gi;
-                    while ((match = actionRegex.exec(cleanSegment)) !== null) {
-                        const task = `✅ ${match[1].trim()}`;
-                        if (!foundTasks.includes(task)) foundTasks.push(task);
-                    }
-                });
-
-                // Fallback for isolated simple dates
-                const simpleDatePatterns = [
-                    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(tomorrow|tonight|today|next\s+(?:week|month))\b/gi,
-                    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi
-                ];
-
-                simpleDatePatterns.forEach(pattern => {
-                    let match;
-                    while ((match = pattern.exec(fullText)) !== null) {
-                        const dateStr = match[0];
-                        // Avoid duplicates if already caught
-                        if (foundTasks.some(t => t.toLowerCase().includes(dateStr.toLowerCase()))) continue;
-
-                        const index = match.index;
-                        const prefix = fullText.substring(Math.max(0, index - 30), index).trim();
-                        const words = prefix.split(' ').filter(w => w.length > 2);
-                        const context = words.slice(-3).join(' ');
-
-                        const task = context.length > 3 ? `📅 ${context} on ${dateStr}` : `📅 Action on ${dateStr}`;
-                        if (!foundTasks.includes(task)) foundTasks.push(task);
-                    }
-                });
-
-                // Add detected tasks to memory log
-                foundTasks.forEach(task => {
-                    onDateDetected(task);
                 });
 
                 // If we have a Gemini-generated summary, use that; otherwise create a basic one
                 const summaryToSave = lastSummary || `Conversation recorded: ${conversationText.substring(0, 200)}${conversationText.length > 200 ? '...' : ''}`;
 
-                // Trigger the callback with whatever we have
                 if (!lastSummary) {
                     onConversationUpdate(summaryToSave, visitorInfo || undefined);
                 }
 
-                // Also trigger Gemini analysis if available for better extraction
                 if (primaryModel && !lastSummary) {
                     analyzeConversation(conversations);
                 }

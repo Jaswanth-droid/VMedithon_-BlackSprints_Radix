@@ -11,13 +11,22 @@ import asyncio
 import json
 import os
 import re
+import sys
 from datetime import datetime
 
 import aiohttp
 import socketio
 
+# Ensure UTF-8 output on Windows console
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 # ── Configuration ─────────────────────────────────────────────────────────────
-HUB_URL = os.getenv("HUB_URL", "http://localhost:3001")
+HUB_URL = os.getenv("HUB_URL", "http://localhost:5000")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBOSp25QjJRHC4MRGJOHzNx6ItTEIQ7zZY")
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"

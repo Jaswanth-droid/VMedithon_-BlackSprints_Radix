@@ -32,9 +32,10 @@ import DiseaseProgressionAnalysis from './DiseaseProgressionAnalysis';
 import BehaviorAnalysis from './BehaviorAnalysis';
 import CaregiverPortal from './CaregiverPortal';
 import MedicationReminderUI from './MedicationReminderUI';
-import { getProgressionHistory, getBehaviorIncidents } from './memoryDatabase';
+import { getProgressionHistory, getBehaviorIncidents, getAllDates, deleteDate } from './memoryDatabase';
 import { ProgressionRecord } from './diseaseAnalytics';
 import { BehaviorIncident } from './behaviorMentalHealth';
+import { cleanEventTitle } from './nlpExtractor';
 
 type ActiveViewType = 'vision' | 'progression' | 'behavior' | 'caregiver' | 'medication';
 
@@ -54,6 +55,28 @@ function App() {
     const historyRef = useRef(history);
     const [memoryLog, setMemoryLog] = useState<{ time: string; event: string }[]>([]);
     const [tasks, setTasks] = useState<{ id: string; time: string; event: string; type: 'date' | 'action' }[]>([]);
+
+    const loadTasks = async () => {
+        try {
+            const datesData = await getAllDates();
+            const mapped = datesData.map(d => {
+                const parsedDate = new Date(d.createdAt || d.date);
+                const timeStr = !isNaN(parsedDate.getTime())
+                    ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : 'Today';
+                const cleanedEvent = cleanEventTitle(d.event);
+                return {
+                    id: d.id,
+                    time: timeStr,
+                    event: cleanedEvent,
+                    type: d.type === 'appointment' ? ('date' as const) : ('action' as const)
+                };
+            });
+            setTasks(mapped);
+        } catch (err) {
+            console.error("Error loading tasks on mount:", err);
+        }
+    };
     const lastSummaryRef = useRef("");
     const [isAutoScanEnabled, setIsAutoScanEnabled] = useState(false);
     const [quotaHit, setQuotaHit] = useState(false);
@@ -93,7 +116,9 @@ function App() {
                 setTimeout(() => setCognitiveAlert(null), 30000);
             }
         });
-        return unsub;
+        return () => {
+            unsub();
+        };
     }, []);
 
     // Emit face_detected to hub whenever a person is identified
@@ -117,9 +142,10 @@ function App() {
         }
     }, [apiKey]);
 
-    // Load progression & behavior records on mount
+    // Load progression, behavior records & tasks on mount
     useEffect(() => {
         loadModuleData();
+        loadTasks();
     }, []);
 
     const loadModuleData = async () => {
@@ -445,7 +471,12 @@ function App() {
                                                     </p>
                                                 </div>
                                                 <button
-                                                    onClick={() => setTasks(prev => prev.filter(t => t.id !== task.id))}
+                                                    onClick={async () => {
+                                                        try {
+                                                            await deleteDate(task.id);
+                                                        } catch (e) {}
+                                                        setTasks(prev => prev.filter(t => t.id !== task.id));
+                                                    }}
                                                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all"
                                                 >
                                                     <ShieldCheck size={14} className="text-dim hover:text-white" />
@@ -682,10 +713,10 @@ function App() {
                                             const now = new Date();
                                             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                             const type = event.includes('📅') ? 'date' : 'action';
-                                            const cleanEvent = event.replace(/^[📅✅]\s*/, '');
+                                            const cleanEvent = cleanEventTitle(event);
 
                                             setTasks(prev => {
-                                                if (prev.some(t => t.event === cleanEvent)) return prev;
+                                                if (prev.some(t => t.event.toLowerCase() === cleanEvent.toLowerCase())) return prev;
                                                 return [...prev, {
                                                     id: Math.random().toString(36).substr(2, 9),
                                                     time: timeStr,
@@ -694,7 +725,7 @@ function App() {
                                                 }];
                                             });
 
-                                            setMemoryLog(prev => [{ time: timeStr, event }, ...prev].slice(0, 10));
+                                            setMemoryLog(prev => [{ time: timeStr, event: cleanEvent }, ...prev].slice(0, 10));
                                         }}
                                         onConversationUpdate={(summary, visitorInfo) => {
                                             setHistory(prev => `${prev}\n[Conversation] ${summary}`);
@@ -702,6 +733,7 @@ function App() {
                                             if (visitorInfo) {
                                                 setLastVisitorInfo(visitorInfo);
                                             }
+                                            loadTasks();
                                             // Relay full transcript to CBAE via hub
                                             emitConversationEnded({
                                                 transcript: summary,

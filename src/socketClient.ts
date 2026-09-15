@@ -12,7 +12,7 @@
 
 import { io, Socket } from 'socket.io-client';
 
-const HUB_URL = import.meta.env.VITE_HUB_URL ?? 'http://localhost:3001';
+const HUB_URL = (import.meta as any).env?.VITE_HUB_URL ?? 'http://localhost:5000';
 
 let _socket: Socket | null = null;
 

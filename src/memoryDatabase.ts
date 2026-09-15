@@ -86,6 +86,8 @@ export interface ImportantDate {
     event: string;
     type: 'meeting' | 'appointment' | 'reminder';
     createdAt: Date;
+    description?: string;
+    hasExactTime?: boolean;
 }
 
 export interface ConversationEntry {
@@ -188,6 +190,11 @@ export async function addDate(date: ImportantDate): Promise<void> {
 export async function getAllDates(): Promise<ImportantDate[]> {
     const db = await initDatabase();
     return db.getAll('dates');
+}
+
+export async function updateDate(date: ImportantDate): Promise<void> {
+    const db = await initDatabase();
+    await db.put('dates', date);
 }
 
 export async function deleteDate(id: string): Promise<void> {

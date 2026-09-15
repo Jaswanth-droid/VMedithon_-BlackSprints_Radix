@@ -13,9 +13,12 @@
     "@google/generative-ai": "^0.24.1",
     "@tensorflow/tfjs": "^4.22.0",
     "@vladmandic/face-api": "^1.7.15",
+    "compromise": "^14.17.0",
     "framer-motion": "^12.33.0",
     "idb": "^8.0.3",
     "lucide-react": "^0.563.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-webcam": "^7.2.0",
     "socket.io-client": "^4.8.3"
   },
