@@ -382,14 +382,24 @@ export async function getMedicationSchedules(): Promise<MedicationSchedule[]> {
     return schedules;
 }
 
+export const SCHEDULES_CHANGED_EVENT = 'mnemosync:schedules-changed';
+
+function notifySchedulesChanged() {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(SCHEDULES_CHANGED_EVENT));
+    }
+}
+
 export async function addMedicationSchedule(schedule: MedicationSchedule): Promise<void> {
     const db = await initDatabase();
     await db.put('medicationSchedules', schedule);
+    notifySchedulesChanged();
 }
 
 export async function updateMedicationSchedule(schedule: MedicationSchedule): Promise<void> {
     const db = await initDatabase();
     await db.put('medicationSchedules', schedule);
+    notifySchedulesChanged();
 }
 
 export async function getMedicationAdherenceLogs(): Promise<MedicationAdherenceLog[]> {

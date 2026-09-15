@@ -1,102 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, MessageSquare, Calendar, Users, Trash2 } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, Users, Trash2, UserPlus, Fingerprint, HelpCircle } from 'lucide-react';
 import { addDate, generateId } from './memoryDatabase';
 import { SpeakerDetector } from './speakerDetector';
-
-// Helper function to parse dates from text like "Feb 16", "tomorrow", "next Monday"
-function parseDateFromText(text: string): Date {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const lower = text.toLowerCase();
-
-    // Month name mapping
-    const months: Record<string, number> = {
-        'jan': 0, 'january': 0, 'feb': 1, 'february': 1, 'mar': 2, 'march': 2,
-        'apr': 3, 'april': 3, 'may': 4, 'jun': 5, 'june': 5, 'jul': 6, 'july': 6,
-        'aug': 7, 'august': 7, 'sep': 8, 'sept': 8, 'september': 8,
-        'oct': 9, 'october': 9, 'nov': 10, 'november': 10, 'dec': 11, 'december': 11
-    };
-
-    // Check for relative dates
-    if (lower.includes('today')) return now;
-    if (lower.includes('tomorrow')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 1);
-        return d;
-    }
-    if (lower.includes('day after tomorrow')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 2);
-        return d;
-    }
-    if (lower.includes('next week')) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + 7);
-        return d;
-    }
-    if (lower.includes('next month')) {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() + 1);
-        return d;
-    }
-
-    // Check for day names (next Monday, this Friday, etc.)
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    for (let i = 0; i < dayNames.length; i++) {
-        if (lower.includes(dayNames[i])) {
-            const d = new Date(now);
-            const currentDay = d.getDay();
-            let daysUntil = i - currentDay;
-            if (daysUntil <= 0) daysUntil += 7; // Next occurrence
-            d.setDate(d.getDate() + daysUntil);
-            return d;
-        }
-    }
-
-    // Try to parse "Month Day" format (e.g., "Feb 16", "February 16th")
-    const monthDayMatch = text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t)?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{1,2})(?:st|nd|rd|th)?\b/i);
-    if (monthDayMatch) {
-        const monthStr = monthDayMatch[1].toLowerCase().substring(0, 3);
-        const day = parseInt(monthDayMatch[2]);
-        const month = months[monthStr];
-        if (month !== undefined && day >= 1 && day <= 31) {
-            // Use current year, or next year if the date has passed
-            let year = currentYear;
-            const targetDate = new Date(year, month, day);
-            if (targetDate < now) {
-                year++;
-            }
-            return new Date(year, month, day);
-        }
-    }
-
-    // Try to parse "Day Month" format (e.g., "16 Feb", "16th February")
-    const dayMonthMatch = text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t)?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
-    if (dayMonthMatch) {
-        const day = parseInt(dayMonthMatch[1]);
-        const monthStr = dayMonthMatch[2].toLowerCase().substring(0, 3);
-        const month = months[monthStr];
-        if (month !== undefined && day >= 1 && day <= 31) {
-            let year = currentYear;
-            const targetDate = new Date(year, month, day);
-            if (targetDate < now) {
-                year++;
-            }
-            return new Date(year, month, day);
-        }
-    }
-
-    // Try standard date formats (M/D/YYYY, YYYY-MM-DD, etc.)
-    const standardDate = new Date(text);
-    if (!isNaN(standardDate.getTime())) {
-        return standardDate;
-    }
-
-    // Default to today if no date could be parsed
-    console.log('[Date Parser] Could not parse date from:', text, '- using today');
-    return now;
-}
+import { getVoicePrintEngine } from './voicePrint';
+import { extractOccasions, parseDateFromText, type Occasion } from './occasionExtractor';
 
 interface ConversationEntry {
     speaker: string;
@@ -104,50 +12,61 @@ interface ConversationEntry {
     timestamp: Date;
 }
 
-// Helper: Generate Mock AI Response using Regex
+// Simple token-Jaccard similarity for repeated-question detection.
+function similarity(a: string, b: string): number {
+    const ta = new Set(a.split(/\s+/).filter(Boolean));
+    const tb = new Set(b.split(/\s+/).filter(Boolean));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let inter = 0;
+    ta.forEach(t => { if (tb.has(t)) inter++; });
+    return inter / (ta.size + tb.size - inter);
+}
+
+function normalizeQuestion(text: string): string {
+    return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isQuestion(text: string): boolean {
+    const t = text.trim();
+    return /\?$/.test(t) ||
+        /^(what|when|where|who|whom|whose|why|how|which|is|are|am|do|does|did|can|could|should|would|will|have|has|had)\b/i.test(t);
+}
+
+// Helper: local fallback summary when no model is available.
 const generateMockResponse = (text: string, visitorName: string, visitorRelation: string): string => {
-    const lowerText = text.toLowerCase();
-    let mockDate = "None";
-    let mockAction = "None";
-
-    // Extract dates using heuristic (global match) - now finds ALL dates
-    const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi;
-    const matches = text.match(dateRegex);
-
-    if (matches) {
-        const foundDates = matches.map(m => m.trim());
-        const uniqueDates = [...new Set(foundDates)];
-        mockDate = uniqueDates.join(', ');
-    } else if (text.match(/((?:today|tomorrow|next week|next month))/i)) {
-        const relMatch = text.match(/((?:today|tomorrow|next week|next month))/i);
-        mockDate = relMatch ? relMatch[0] : "None";
-    }
-
-    // Extract possible actions
-    if (lowerText.includes('remind') || lowerText.includes('remember') || lowerText.includes('don\'t forget')) {
-        mockAction = text;
-    }
-
+    const occasions = extractOccasions(text);
+    const dateStr = occasions.length
+        ? occasions.map(o => `${o.title} (${o.when})`).join(', ')
+        : 'None';
     return `
 VISITOR: ${visitorName}, ${visitorRelation}
-SUMMARY: You had a conversation with ${visitorName}. You discussed ${mockDate !== 'None' ? 'dates: ' + mockDate : 'various topics'}.
-DATES: ${mockDate}
-ACTIONS: ${mockAction}
+SUMMARY: You had a conversation with ${visitorName}. ${occasions.length ? 'You talked about: ' + occasions.map(o => o.title).join(', ') + '.' : 'You chatted about everyday things.'}
+DATES: ${dateStr}
+ACTIONS: None
 `;
 };
 
 interface ConversationRecorderProps {
     onDateDetected: (event: string) => void;
     onConversationUpdate: (summary: string, visitorInfo?: { name: string; relation: string }) => void;
+    /** Fired for each precise occasion extracted from speech (event + when). */
+    onOccasion?: (occasion: Occasion) => void;
+    /** Fired when a known voice/face is recognised — drives the recall card + reassurance. */
+    onPersonRecognized?: (info: { name: string; relation: string; source: 'voice' | 'face' }) => void;
+    /** Fired when the patient repeats the same question several times in a short window. */
+    onRepeatedQuestion?: (question: string, times: number) => void;
     primaryModel: any;
     backupModel: any;
     identifiedPerson: { name: string; relation: string } | null;
-    patientName?: string; // The Alzheimer's patient (Person A)
+    patientName?: string;
 }
 
 export default function ConversationRecorder({
     onDateDetected,
     onConversationUpdate,
+    onOccasion,
+    onPersonRecognized,
+    onRepeatedQuestion,
     primaryModel,
     backupModel,
     identifiedPerson,
@@ -159,286 +78,183 @@ export default function ConversationRecorder({
     const [lastSummary, setLastSummary] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [visitorInfo, setVisitorInfo] = useState<{ name: string; relation: string } | null>(null);
+    const [repeatedNotice, setRepeatedNotice] = useState<string | null>(null);
+
+    // Voice-ID enrolment UI
+    const engineRef = useRef(getVoicePrintEngine());
+    const [profiles, setProfiles] = useState(engineRef.current.getProfiles());
+    const [enrolling, setEnrolling] = useState<'owner' | 'family' | null>(null);
+    const [voiceMsg, setVoiceMsg] = useState<string>('');
+    const [familyName, setFamilyName] = useState('');
+    const [familyRelation, setFamilyRelation] = useState('');
 
     const recognitionRef = useRef<any>(null);
-    const silenceTimerRef = useRef<number | null>(null);
-    const lastSpeechTimeRef = useRef<number>(Date.now());
-    const lastIdentifiedPersonRef = useRef<string | null>(null);
-    const primarySpeakerRef = useRef<string | null>(null); // User baseline
+    const primarySpeakerRef = useRef<string | null>(null);
     const lastSpeakerChangeTimeRef = useRef<number>(Date.now());
     const isManualSwitchRef = useRef<boolean>(false);
     const currentSpeakerRef = useRef<'You' | 'Visitor'>(currentSpeaker);
+    const conversationsRef = useRef<ConversationEntry[]>([]);
+    const recentQuestionsRef = useRef<{ norm: string; raw: string; ts: number; count: number }[]>([]);
+    const lastRecognizedRef = useRef<string>('');
 
-    // Initialize speaker detector
-    const speakerDetector = new SpeakerDetector();
+    // Created ONCE — the old code rebuilt this on every render and lost state.
+    const detectorRef = useRef(new SpeakerDetector());
 
-    // Sync ref with state
-    useEffect(() => {
-        currentSpeakerRef.current = currentSpeaker;
-    }, [currentSpeaker]);
+    useEffect(() => { currentSpeakerRef.current = currentSpeaker; }, [currentSpeaker]);
+    useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
-    // Enhanced speaker switch that handles both state and ref
+    const isListeningRef = useRef(isListening);
+    useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
     const updateSpeaker = useCallback((newSpeaker: 'You' | 'Visitor', manual = false) => {
         if (currentSpeakerRef.current === newSpeaker && !manual) return;
-
         setCurrentSpeaker(newSpeaker);
         currentSpeakerRef.current = newSpeaker;
         lastSpeakerChangeTimeRef.current = Date.now();
         if (manual) isManualSwitchRef.current = true;
-        console.log(`[Speaker] Switch to ${newSpeaker} (${manual ? 'Manual' : 'Auto'})`);
     }, []);
 
-    // Track identified person changes for speaker switching
+    // Resolve the owner's name: prefer an enrolled voice owner, else first face ID.
+    const getOwnerName = useCallback((): string | null => {
+        const owner = engineRef.current.getOwner();
+        if (owner) return owner.name;
+        return primarySpeakerRef.current;
+    }, []);
+
+    // Track identified person for the face-based baseline (owner) only.
     useEffect(() => {
-        if (!identifiedPerson || !isListening) return;
-
-        const currentName = identifiedPerson.name;
-        const now = Date.now();
-        const timeSinceChange = now - lastSpeakerChangeTimeRef.current;
-
-        // Set primary speaker (User) on first identification
-        if (!primarySpeakerRef.current) {
-            primarySpeakerRef.current = currentName;
-            updateSpeaker('You');
-            console.log(`[Speaker] Primary speaker (you) set: ${currentName}`);
-            return;
+        if (!identifiedPerson) return;
+        if (!primarySpeakerRef.current && !engineRef.current.getOwner()) {
+            primarySpeakerRef.current = identifiedPerson.name;
         }
+    }, [identifiedPerson]);
 
-        // 1. Switch to Visitor if a DIFFERENT person is explicitly identified
-        if (currentName !== primarySpeakerRef.current && currentSpeakerRef.current === 'You') {
-            updateSpeaker('Visitor');
-            setVisitorInfo({
-                name: identifiedPerson.name,
-                relation: identifiedPerson.relation
-            });
-            isManualSwitchRef.current = false;
-        }
-        // 2. Switch back to "You" only if User is seen AND we haven't just switched/locked to Visitor
-        else if (currentName === primarySpeakerRef.current && currentSpeakerRef.current === 'Visitor') {
-            if (!isManualSwitchRef.current && timeSinceChange > 15000) {
-                updateSpeaker('You');
-            }
-        }
-
-        lastIdentifiedPersonRef.current = currentName;
-    }, [identifiedPerson, isListening, currentSpeaker]);
-
-    // Auto-update past conversation entries when visitor name is revealed
+    // Update past "Visitor" labels once a visitor name is known.
     useEffect(() => {
         if (visitorInfo && visitorInfo.name && visitorInfo.name !== 'the visitor') {
             setConversations(prev => prev.map(entry => ({
                 ...entry,
                 speaker: entry.speaker === 'Visitor' ? visitorInfo.name : entry.speaker
             })));
-            console.log(`[Conversation] Updated 'Visitor' labels to '${visitorInfo.name}'`);
         }
     }, [visitorInfo]);
 
-    // Track listening state in ref for callbacks
-    const isListeningRef = useRef(isListening);
-    useEffect(() => {
-        isListeningRef.current = isListening;
-    }, [isListening]);
+    // ---- Repeated-question detection (Alzheimer's reassurance) ----
+    const checkRepeatedQuestion = useCallback((text: string) => {
+        if (!isQuestion(text)) return;
+        const norm = normalizeQuestion(text);
+        if (!norm) return;
+        const now = Date.now();
+        recentQuestionsRef.current = recentQuestionsRef.current.filter(q => now - q.ts < 10 * 60 * 1000);
+        const match = recentQuestionsRef.current.find(q => similarity(q.norm, norm) > 0.75);
+        if (match) {
+            match.count++;
+            match.ts = now;
+            const times = match.count + 1;
+            if (times >= 2) {
+                setRepeatedNotice(`You've asked "${match.raw}" ${times} times. That's completely okay — here's the answer again.`);
+                onRepeatedQuestion?.(match.raw, times);
+                window.setTimeout(() => setRepeatedNotice(null), 12000);
+            }
+        } else {
+            recentQuestionsRef.current.push({ norm, raw: text.trim(), ts: now, count: 0 });
+        }
+    }, [onRepeatedQuestion]);
 
-    // Analyze conversation with Gemini - Alzheimer's focused
+    // ---- Conversation analysis ----
     const analyzeConversation = useCallback(async (convos: ConversationEntry[]) => {
         if (!primaryModel || convos.length === 0 || isProcessing) return;
-
         setIsProcessing(true);
         try {
-            const conversationText = convos
-                .map(c => `${c.speaker}: "${c.text}"`)
-                .join('\n');
-
-            // Get visitor name from conversation if available
+            const conversationText = convos.map(c => `${c.speaker}: "${c.text}"`).join('\n');
             const visitorName = visitorInfo?.name || 'the visitor';
             const visitorRelation = visitorInfo?.relation || 'someone';
 
             let response = '';
-            let isQuotaError = false;
+            const prompt = `You are helping an Alzheimer's patient named ${patientName} remember a conversation.
 
-            // Flags
-            const FORCE_MOCK_AI = false; // Set to true only if you want to bypass Gemini completely
-
-            if (FORCE_MOCK_AI) {
-                console.log('[Mock AI] Generating response locally (Forced)...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                response = generateMockResponse(conversationText, visitorName, visitorRelation);
-            } else {
-                // Hybrid Tiered Mode: Primary (G3) -> Backup (G2.5) -> Mock (Regex)
-                const prompt = `You are helping an Alzheimer's patient named ${patientName} remember a conversation they just had.
-
-The conversation was between:
-- "You" = ${patientName} (the Alzheimer's patient)
+Participants:
+- "You" = ${patientName} (the patient)
 - "Visitor" = ${visitorName} (${visitorRelation})
 
 Conversation:
 ${conversationText}
 
-Provide a gentle, caring summary for ${patientName} explaining:
-1. WHO they were talking to (use the visitor's name and relationship if known)
-2. WHAT they discussed (key topics in simple terms)
-3. Any IMPORTANT things to remember (dates, promises, tasks)
-
-Also, double check if the "You" and "Visitor" speakers are logically correct. For example, if someone says "Hi User", they must be the Visitor. If there are mistakes, fix them in the transcript.
-
-Respond in this exact format:
-VISITOR: [visitor's name and their relationship to ${patientName}, or "Unknown visitor" if not clear]
-SUMMARY: [A warm, simple 1-2 sentence summary written as if speaking directly to ${patientName}]
-DATES: [Any dates, appointments, or deadlines mentioned, or "None"]
-ACTIONS: [Any promises made or tasks to do, or "None"]
+Give a gentle, caring summary. Respond EXACTLY in this format:
+VISITOR: [visitor name and relationship, or "Unknown visitor"]
+SUMMARY: [warm 1-2 sentence summary spoken directly to ${patientName}]
+DATES: [specific occasions/appointments with their time, or "None"]
+ACTIONS: [promises or tasks, or "None"]
 TRANSCRIPT:
-[Speaker]: "Corrected text"
-...`;
+[Speaker]: "corrected text"`;
 
-                try {
-                    console.log('[Conversation] Attempting Primary Model...');
-                    const result = await primaryModel.generateContent(prompt);
-                    response = result.response.text();
-                } catch (primaryError: any) {
-                    console.warn('[Conversation] Primary Model failed, trying Backup...', primaryError.message);
-
-                    if (backupModel) {
-                        try {
-                            const result = await backupModel.generateContent(prompt);
-                            response = result.response.text();
-                        } catch (backupError: any) {
-                            console.error('[Conversation] Backup Model also failed. Using Mock AI fallback.', backupError.message);
-                            response = generateMockResponse(conversationText, visitorName, visitorRelation);
-                        }
-                    } else {
-                        console.log('[Conversation] No backup model available. Using Mock AI fallback.');
+            try {
+                const result = await primaryModel.generateContent(prompt);
+                response = result.response.text();
+            } catch (primaryError: any) {
+                console.warn('[Conversation] Primary failed, trying backup...', primaryError?.message);
+                if (backupModel) {
+                    try {
+                        const result = await backupModel.generateContent(prompt);
+                        response = result.response.text();
+                    } catch {
                         response = generateMockResponse(conversationText, visitorName, visitorRelation);
                     }
+                } else {
+                    response = generateMockResponse(conversationText, visitorName, visitorRelation);
                 }
             }
 
-            // Parse the response (from Gemini or Mock)
             const visitorMatch = response.match(/VISITOR:\s*(.+?)(?=SUMMARY:|$)/s);
             const summaryMatch = response.match(/SUMMARY:\s*(.+?)(?=DATES:|$)/s);
-            let datesMatch = response.match(/DATES:\s*(.+?)(?=ACTIONS:|$)/s); // Let allows modification
-
-            // HYBRID ENHANCEMENT: Always run Regex for dates and append to Gemini's result
-            const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?/gi;
-            const regexMatches = conversationText.match(dateRegex);
-
-            if (regexMatches) {
-                const foundDates = regexMatches.map(m => m.trim());
-                const uniqueRegexDates = [...new Set(foundDates)];
-
-                console.log('[Hybrid] Regex found:', uniqueRegexDates.join(', '));
-
-                let combinedDates = '';
-                if (datesMatch) {
-                    let existingDates = datesMatch[1].trim();
-                    if (existingDates.toLowerCase().includes('none')) {
-                        // Gemini found nothing, replace with Regex result
-                        console.log('[Hybrid] Gemini missed dates. Using Regex.');
-                        combinedDates = uniqueRegexDates.join(', ');
-                    } else {
-                        console.log('[Hybrid] Merging Gemini dates with Regex dates.');
-                        const existingDateArray = existingDates.split(',').map(d => d.trim()).filter(d => d);
-                        const allDates = [...new Set([...existingDateArray, ...uniqueRegexDates])];
-                        combinedDates = allDates.join(', ');
-                    }
-                } else {
-                    // No datesMatch from Gemini at all, just use regex dates
-                    combinedDates = uniqueRegexDates.join(', ');
-                }
-
-                // Update datesMatch to reflect the combined result for subsequent processing
-                // Only merge if we actually found something worth adding
-                if (combinedDates) {
-                    datesMatch = [`DATES: ${combinedDates}`, combinedDates] as RegExpMatchArray;
-                }
-            }
-            const actionsMatch = response.match(/ACTIONS:\s*(.+?)$/s);
 
             let extractedVisitor = visitorInfo;
             if (visitorMatch) {
-                const visitorText = visitorMatch[1].trim();
-                if (!visitorText.toLowerCase().includes('unknown')) {
+                const vText = visitorMatch[1].trim();
+                if (!vText.toLowerCase().includes('unknown')) {
                     extractedVisitor = {
-                        name: visitorText.split(',')[0].trim(),
-                        relation: visitorText.includes(',') ? visitorText.split(',')[1].trim() : 'visitor'
+                        name: vText.split(',')[0].trim(),
+                        relation: vText.includes(',') ? vText.split(',')[1].trim() : 'visitor'
                     };
                     setVisitorInfo(extractedVisitor);
                 }
             }
-
             if (summaryMatch) {
                 const summary = summaryMatch[1].trim();
                 setLastSummary(summary);
                 onConversationUpdate(summary, extractedVisitor || undefined);
             }
 
-            if (datesMatch) {
-                const datesText = datesMatch[1].trim();
-                console.log('[Date Extraction] Dates text:', datesText);
-                if (datesText && !datesText.toLowerCase().includes('none')) {
-                    // Split by newlines OR commas to catch various formatting
-                    const dateLines = datesText.split(/\n|,/).filter((l: string) => l.trim());
-                    console.log('[Date Extraction] Found date lines:', dateLines);
-                    dateLines.forEach(async (dateLine: string) => {
-                        const cleanedDate = dateLine.replace(/^-\s*|^[📅✅]\s*/, '').trim();
-                        console.log('[Date Extraction] Processing:', cleanedDate);
-
-                        // Parse the actual date from the text
-                        const parsedDate = parseDateFromText(cleanedDate);
-                        console.log('[Date Extraction] Parsed date:', parsedDate);
-
-                        // onDateDetected(`📅 ${cleanedDate}`);
-                        // Save to IndexedDB with the ACTUAL event date
-                        try {
-                            await addDate({
-                                id: generateId(),
-                                date: parsedDate.toISOString(), // Use ISO string for reliability
-                                event: cleanedDate,
-                                type: 'appointment',
-                                createdAt: parsedDate // Store the actual event date here!
-                            });
-                            console.log('[Date Extraction] ✅ Date saved for:', parsedDate.toISOString());
-                        } catch (error) {
-                            console.error('[Date Extraction] ❌ Error saving date:', error);
-                        }
-                    });
+            // Precise occasion extraction over the whole conversation (replaces the
+            // old noisy regex that flagged entire sentences).
+            const occasions = extractOccasions(convos.map(c => c.text).join('. '));
+            for (const occ of occasions) {
+                const icon = occ.type === 'reminder' ? '✅' : '📅';
+                onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
+                onOccasion?.(occ);
+                try {
+                    await addDate({
+                        id: generateId(),
+                        date: (occ.date || parseDateFromText(occ.when)).toISOString(),
+                        event: `${occ.title} — ${occ.when}`,
+                        type: occ.type === 'reminder' ? 'reminder' : 'appointment',
+                        createdAt: occ.date || new Date()
+                    } as any);
+                } catch (e) {
+                    console.error('[Occasion] save failed:', e);
                 }
             }
 
-            if (actionsMatch) {
-                const actionsText = actionsMatch[1].trim();
-                if (actionsText && !actionsText.toLowerCase().includes('none')) {
-                    // Split by newlines OR commas
-                    const actionLines = actionsText.split(/\n|,/).filter((l: string) => l.trim());
-                    actionLines.forEach(async (actionLine: string) => {
-                        const cleanedAction = actionLine.replace(/^-\s*|^[📅✅]\s*/, '').trim();
-                        const parsedDate = parseDateFromText(cleanedAction);
-                        // onDateDetected(`✅ ${cleanedAction}`);
-                        // Save to IndexedDB with the parsed date
-                        await addDate({
-                            id: generateId(),
-                            date: parsedDate.toISOString(), // Use ISO string for reliability
-                            event: cleanedAction,
-                            type: 'reminder',
-                            createdAt: parsedDate
-                        });
-                    });
-                }
-            }
-
-            // Handle transcript correction
+            // Transcript correction
             const transcriptMatch = response.match(/TRANSCRIPT:\s*(.+)$/s);
             if (transcriptMatch) {
-                const transcriptLines = transcriptMatch[1].trim().split('\n');
+                const lines = transcriptMatch[1].trim().split('\n');
                 setConversations(prev => {
                     const next = [...prev];
-                    transcriptLines.forEach((line: string, idx: number) => {
+                    lines.forEach((line, idx) => {
                         if (idx < next.length) {
-                            const match = line.match(/^(.+?):\s*"(.*)"$/);
-                            if (match) {
-                                next[idx].speaker = match[1].trim();
-                                next[idx].text = match[2].trim();
-                            }
+                            const m = line.match(/^(.+?):\s*"(.*)"$/);
+                            if (m) { next[idx].speaker = m[1].trim(); next[idx].text = m[2].trim(); }
                         }
                     });
                     return next;
@@ -448,245 +264,122 @@ TRANSCRIPT:
             console.error('Conversation analysis error:', error);
         }
         setIsProcessing(false);
-    }, [primaryModel, backupModel, isProcessing, onConversationUpdate, onDateDetected, patientName, visitorInfo]);
+    }, [primaryModel, backupModel, isProcessing, onConversationUpdate, onDateDetected, onOccasion, patientName, visitorInfo]);
 
-    // Handle speech result
+    const analyzeRef = useRef(analyzeConversation);
+    useEffect(() => { analyzeRef.current = analyzeConversation; }, [analyzeConversation]);
+
+    // ---- Speech result handler ----
     const handleSpeechResult = useCallback((transcript: string) => {
         if (!transcript.trim()) return;
 
-        const now = Date.now();
-        const timeSinceLastSpeech = now - lastSpeechTimeRef.current;
+        // Voice-first speaker identification (real audio), face as fallback.
+        const decision = detectorRef.current.detectSpeaker(identifiedPerson, getOwnerName());
+        updateSpeaker(decision.label);
 
-        // Use speaker detector to decide if speaker has changed
-        const detectedSpeaker = speakerDetector.detectSpeaker(transcript, identifiedPerson, primarySpeakerRef.current);
-        if (detectedSpeaker && detectedSpeaker !== currentSpeakerRef.current) {
-            updateSpeaker(detectedSpeaker);
-        }
-        lastSpeechTimeRef.current = now;
-
-        // Determining the current speaker name
-        let speakerName: string = currentSpeakerRef.current;
-
-        // If face recognition explicitly sees someone ELSE, use their name
-        if (identifiedPerson && identifiedPerson.name !== primarySpeakerRef.current) {
-            speakerName = identifiedPerson.name;
-        }
-        // If we're in Visitor mode and we know the visitor's name (from conversation or face), use it
-        else if (currentSpeakerRef.current === 'Visitor') {
-            // Use visitorInfo.name if available (extracted from conversation or face)
-            const visitorName = visitorInfo?.name;
-            if (visitorName && visitorName !== 'the visitor') {
-                speakerName = visitorName;
-            } else {
-                speakerName = 'Visitor';
+        // Surface a recognised person for the recall card / reassurance greeting.
+        const recognizedKey = `${decision.resolvedName}:${decision.source}`;
+        if (decision.isKnownVoice && decision.source === 'voice' && recognizedKey !== lastRecognizedRef.current) {
+            lastRecognizedRef.current = recognizedKey;
+            const prof = engineRef.current.getProfiles().find(p => p.name === decision.resolvedName);
+            if (!decision.isOwner) {
+                setVisitorInfo({ name: prof?.name || decision.resolvedName, relation: prof?.relation || 'visitor' });
             }
-        }
-        // If face recognition sees the User (User), and we are in 'You' mode
-        else if (currentSpeaker === 'You' && identifiedPerson?.name === primarySpeakerRef.current) {
-            speakerName = 'You';
+            onPersonRecognized?.({
+                name: decision.resolvedName,
+                relation: prof?.relation || (decision.isOwner ? 'you' : 'visitor'),
+                source: 'voice'
+            });
+        } else if (decision.source === 'face' && identifiedPerson && recognizedKey !== lastRecognizedRef.current) {
+            lastRecognizedRef.current = recognizedKey;
+            if (!decision.isOwner) setVisitorInfo({ name: identifiedPerson.name, relation: identifiedPerson.relation });
+            onPersonRecognized?.({ name: identifiedPerson.name, relation: identifiedPerson.relation, source: 'face' });
         }
 
-        const newEntry: ConversationEntry = {
-            speaker: speakerName,
-            text: transcript,
-            timestamp: new Date()
-        };
+        let speakerName: string;
+        if (decision.isOwner) speakerName = 'You';
+        else if (decision.isKnownVoice) speakerName = decision.resolvedName;
+        else if (currentSpeakerRef.current === 'Visitor') speakerName = visitorInfo?.name && visitorInfo.name !== 'the visitor' ? visitorInfo.name : 'Visitor';
+        else speakerName = 'You';
 
-        setConversations(prev => {
-            const updated = [...prev, newEntry];
-            // Analyze after every 3 entries
-            if (updated.length % 3 === 0 || updated.length === 1) {
-                analyzeConversation(updated);
-            }
-            return updated;
+        const newEntry: ConversationEntry = { speaker: speakerName, text: transcript, timestamp: new Date() };
+
+        // Append via ref (avoids side-effects inside a state updater / StrictMode double-fire).
+        const updated = [...conversationsRef.current, newEntry];
+        conversationsRef.current = updated;
+        setConversations(updated);
+
+        checkRepeatedQuestion(transcript);
+
+        // Real-time precise occasion extraction.
+        const occasions = extractOccasions(transcript);
+        occasions.forEach(occ => {
+            const icon = occ.type === 'reminder' ? '✅' : '📅';
+            onDateDetected(`${icon} ${occ.title} — ${occ.when}`);
+            onOccasion?.(occ);
         });
 
-        // Real-time Task Extraction
-        const foundTasks: string[] = [];
-        const segments = transcript.split(/\b(?:and|then|also)\b/i);
+        if (updated.length % 3 === 0 || updated.length === 1) {
+            analyzeRef.current(updated);
+        }
+    }, [identifiedPerson, getOwnerName, updateSpeaker, visitorInfo, onDateDetected, onOccasion, onPersonRecognized, checkRepeatedQuestion]);
 
-        segments.forEach(segment => {
-            const cleanSegment = segment.trim();
-            if (!cleanSegment) return;
-
-            const timeTerms = '(?:tomorrow|tonight|today|next\\s+(?:week|month)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)';
-            const dateRegex = new RegExp(`\\b([a-zA-Z\\s]{3,30})\\s+(on|at|by|for|this)\\s+(${timeTerms}(?:\\s+\\d{1,2}(?:st|nd|rd|th)?)?)`, 'gi');
-
-            let match;
-            while ((match = dateRegex.exec(cleanSegment)) !== null) {
-                const taskName = match[1].trim();
-                const timeInfo = match[3].trim();
-                if (taskName.length > 2 && !['what', 'when', 'how', 'going'].includes(taskName.toLowerCase())) {
-                    foundTasks.push(`📅 ${taskName} on ${timeInfo}`);
-                }
-            }
-
-            const actionRegex = /\b(?:remember to|don't forget to|remind me to)\s+([a-zA-Z\s]{3,40})/gi;
-            while ((match = actionRegex.exec(cleanSegment)) !== null) {
-                foundTasks.push(`✅ ${match[1].trim()}`);
-            }
-        });
-
-        foundTasks.forEach(task => onDateDetected(task));
-    }, [currentSpeaker, conversations.length, identifiedPerson, analyzeConversation, onDateDetected]);
-
-    // Handler ref to avoid stale listeners
     const speechHandlerRef = useRef(handleSpeechResult);
-    useEffect(() => {
-        speechHandlerRef.current = handleSpeechResult;
-    }, [handleSpeechResult]);
+    useEffect(() => { speechHandlerRef.current = handleSpeechResult; }, [handleSpeechResult]);
 
-    // Initialize Web Speech API
+    // ---- Web Speech API init (once) ----
     useEffect(() => {
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'en-US';
-
-            recognitionRef.current.onresult = (event: any) => {
+        const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+        if (SR) {
+            const rec = new SR();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+            rec.onresult = (event: any) => {
                 const current = event.resultIndex;
                 const transcript = event.results[current][0].transcript;
-
-                if (event.results[current].isFinal) {
-                    speechHandlerRef.current(transcript);
-                }
+                if (event.results[current].isFinal) speechHandlerRef.current(transcript);
             };
-
-            recognitionRef.current.onerror = (event: any) => {
+            rec.onerror = (event: any) => {
                 console.error('Speech recognition error:', event.error);
-                if (event.error !== 'no-speech') {
-                    // Update state if error occurs (ref will be updated by effect)
-                    setIsListening(false);
-                }
+                if (event.error !== 'no-speech' && event.error !== 'aborted') setIsListening(false);
             };
-
-            recognitionRef.current.onend = () => {
+            rec.onend = () => {
                 if (isListeningRef.current) {
-                    // Restart if still supposed to be listening
-                    console.log('Recognition ended but should be listening, restarting...');
-                    try {
-                        recognitionRef.current.start();
-                    } catch (e) {
-                        console.log('Recognition restart failed');
-                    }
+                    try { rec.start(); } catch { /* restart race, ignore */ }
                 }
             };
+            recognitionRef.current = rec;
         }
-
         return () => {
-            if (recognitionRef.current) {
-                recognitionRef.current.stop();
-            }
-            if (silenceTimerRef.current) {
-                clearTimeout(silenceTimerRef.current);
-            }
+            try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+            engineRef.current.stop();
         };
-    }, []); // Run once on mount
+    }, []);
 
-    // Toggle listening
-    const toggleListening = useCallback(() => {
+    // ---- Toggle listening ----
+    const toggleListening = useCallback(async () => {
         if (isListening) {
-            recognitionRef.current?.stop();
+            try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+            engineRef.current.stop();
             setIsListening(false);
 
-            // When stopping, save the conversation for recall
-            if (conversations.length > 0) {
-                // Create a simple summary from conversation if Gemini hasn't analyzed yet
-                const conversationText = conversations
-                    .map(c => `${c.speaker}: "${c.text}"`)
-                    .join(' | ');
-
-                // Improved date extraction with context
-                const fullText = conversations.map(c => c.text).join(' ');
-                const datePatterns = [
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b\d{1,2}(st|nd|rd|th)?\s+(of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(tomorrow|next\s+week|next\s+month|today|tonight)\b/gi,
-                    /\b(on|at|by|until|during)\s+([a-zA-Z0-9\s]+)?\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi
-                ];
-
-                const foundTasks: string[] = [];
-
-                // Pre-process: split by common conjunctions to handle "Doc on Friday and Lunch on Monday"
-                const segments = fullText.split(/\b(?:and|then|also)\b/i);
-
-                segments.forEach(segment => {
-                    const cleanSegment = segment.trim();
-                    if (!cleanSegment) return;
-
-                    // Improved non-greedy regex for dates
-                    const timeTerms = '(?:tomorrow|tonight|today|next\\s+(?:week|month)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)';
-                    const dateRegex = new RegExp(`\\b([a-zA-Z\\s]{3,30})\\s+(on|at|by|for|this)\\s+(${timeTerms}(?:\\s+\\d{1,2}(?:st|nd|rd|th)?)?)`, 'gi');
-
-                    let match;
-                    while ((match = dateRegex.exec(cleanSegment)) !== null) {
-                        const taskName = match[1].trim();
-                        const timeInfo = match[3].trim();
-                        if (taskName.length > 2 && !['what', 'when', 'how', 'going'].includes(taskName.toLowerCase())) {
-                            const task = `📅 ${taskName} on ${timeInfo}`;
-                            if (!foundTasks.includes(task)) foundTasks.push(task);
-                        }
-                    }
-
-                    // Action items: "remind me to..."
-                    const actionRegex = /\b(?:remember to|don't forget to|remind me to)\s+([a-zA-Z\s]{3,40})/gi;
-                    while ((match = actionRegex.exec(cleanSegment)) !== null) {
-                        const task = `✅ ${match[1].trim()}`;
-                        if (!foundTasks.includes(task)) foundTasks.push(task);
-                    }
-                });
-
-                // Fallback for isolated simple dates
-                const simpleDatePatterns = [
-                    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(st|nd|rd|th)?\b/gi,
-                    /\b(tomorrow|tonight|today|next\s+(?:week|month))\b/gi,
-                    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi
-                ];
-
-                simpleDatePatterns.forEach(pattern => {
-                    let match;
-                    while ((match = pattern.exec(fullText)) !== null) {
-                        const dateStr = match[0];
-                        // Avoid duplicates if already caught
-                        if (foundTasks.some(t => t.toLowerCase().includes(dateStr.toLowerCase()))) continue;
-
-                        const index = match.index;
-                        const prefix = fullText.substring(Math.max(0, index - 30), index).trim();
-                        const words = prefix.split(' ').filter(w => w.length > 2);
-                        const context = words.slice(-3).join(' ');
-
-                        const task = context.length > 3 ? `📅 ${context} on ${dateStr}` : `📅 Action on ${dateStr}`;
-                        if (!foundTasks.includes(task)) foundTasks.push(task);
-                    }
-                });
-
-                // Add detected tasks to memory log
-                foundTasks.forEach(task => {
-                    onDateDetected(task);
-                });
-
-                // If we have a Gemini-generated summary, use that; otherwise create a basic one
-                const summaryToSave = lastSummary || `Conversation recorded: ${conversationText.substring(0, 200)}${conversationText.length > 200 ? '...' : ''}`;
-
-                // Trigger the callback with whatever we have
-                if (!lastSummary) {
-                    onConversationUpdate(summaryToSave, visitorInfo || undefined);
-                }
-
-                // Also trigger Gemini analysis if available for better extraction
-                if (primaryModel && !lastSummary) {
-                    analyzeConversation(conversations);
-                }
+            if (conversationsRef.current.length > 0 && !lastSummary) {
+                const text = conversationsRef.current.map(c => `${c.speaker}: "${c.text}"`).join(' | ');
+                const fallback = `Conversation recorded: ${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`;
+                onConversationUpdate(fallback, visitorInfo || undefined);
+                if (primaryModel) analyzeRef.current(conversationsRef.current);
             }
         } else {
-            // New conversation starting - Clear old state
             setConversations([]);
+            conversationsRef.current = [];
             setLastSummary('');
             setVisitorInfo(null);
+            recentQuestionsRef.current = [];
+            lastRecognizedRef.current = '';
 
+            // Start the voiceprint analyser (best-effort) then the speech recognizer.
+            await engineRef.current.start();
             try {
                 recognitionRef.current?.start();
                 setIsListening(true);
@@ -694,18 +387,46 @@ TRANSCRIPT:
                 console.error('Failed to start recognition:', e);
             }
         }
-    }, [isListening, conversations, lastSummary, visitorInfo, primaryModel, backupModel, onConversationUpdate, onDateDetected, analyzeConversation]);
+    }, [isListening, lastSummary, visitorInfo, primaryModel, onConversationUpdate]);
 
-    // Manual speaker switch
-    const switchSpeaker = (speaker: 'You' | 'Visitor') => {
-        updateSpeaker(speaker, true);
-    };
+    // ---- Voice enrolment ----
+    const enrollOwner = useCallback(async () => {
+        setEnrolling('owner');
+        setVoiceMsg(`Recording ${patientName}'s voice — please speak normally for ~4 seconds...`);
+        const ok = await engineRef.current.start();
+        if (!ok) { setVoiceMsg('Microphone unavailable. Allow mic access to enrol a voice.'); setEnrolling(null); return; }
+        const name = primarySpeakerRef.current || patientName || 'Owner';
+        const prof = await engineRef.current.enroll(name, 'Self', true, 4000);
+        primarySpeakerRef.current = prof?.name || name;
+        setProfiles(engineRef.current.getProfiles());
+        setVoiceMsg(prof ? `Owner voice enrolled as "${prof.name}".` : 'Could not capture enough audio. Try again in a quiet room.');
+        setEnrolling(null);
+    }, [patientName]);
 
-    // Clear conversation
+    const enrollFamily = useCallback(async () => {
+        if (!familyName.trim()) { setVoiceMsg('Enter a name first.'); return; }
+        setEnrolling('family');
+        setVoiceMsg(`Recording ${familyName}'s voice — speak normally for ~4 seconds...`);
+        const ok = await engineRef.current.start();
+        if (!ok) { setVoiceMsg('Microphone unavailable.'); setEnrolling(null); return; }
+        const prof = await engineRef.current.enroll(familyName.trim(), familyRelation.trim() || 'family', false, 4000);
+        setProfiles(engineRef.current.getProfiles());
+        setVoiceMsg(prof ? `Enrolled "${prof.name}" (${prof.relation}).` : 'Could not capture audio. Try again.');
+        setFamilyName(''); setFamilyRelation('');
+        setEnrolling(null);
+    }, [familyName, familyRelation]);
+
+    const ownerProfile = profiles.find(p => p.isOwner);
+    const familyProfiles = profiles.filter(p => !p.isOwner);
+
     const clearConversation = () => {
         setConversations([]);
+        conversationsRef.current = [];
         setLastSummary('');
     };
+
+    const speechSupported = typeof window !== 'undefined' &&
+        ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
     return (
         <div className="card card-enhanced">
@@ -713,107 +434,120 @@ TRANSCRIPT:
                 <div className="flex items-center gap-3">
                     <div style={{
                         background: isListening
-                            ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                            : 'linear-gradient(135deg, #10b981, #059669)',
-                        padding: '0.5rem',
-                        borderRadius: '0.75rem'
+                            ? 'linear-gradient(135deg, #f9a8d4, #f472b6)'
+                            : 'linear-gradient(135deg, #a7f3d0, #6ee7b7)',
+                        padding: '0.5rem', borderRadius: '0.75rem'
                     }}>
-                        {isListening ? <Mic size={20} color="white" /> : <MicOff size={20} color="white" />}
+                        {isListening ? <Mic size={20} color="#473f52" /> : <MicOff size={20} color="#473f52" />}
                     </div>
                     <div>
                         <h3 className="font-bold text-sm">Conversation Recorder</h3>
                         <p className="text-xs text-dim">
-                            {isListening ? `Listening • ${currentSpeaker === 'Visitor' && visitorInfo?.name ? visitorInfo.name : currentSpeaker}` : 'Tap to start recording'}
+                            {isListening
+                                ? `Listening • ${currentSpeaker === 'Visitor' && visitorInfo?.name ? visitorInfo.name : currentSpeaker}`
+                                : 'Tap to start recording'}
                         </p>
                     </div>
                 </div>
-                <div className="relative group">
-                    {/* Ripple animation when recording */}
-                    {isListening && (
-                        <>
-                            <motion.div
-                                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                                style={{ background: 'rgba(168, 85, 247, 0.4)' }}
-                                className="absolute inset-0 rounded-xl -z-10"
-                            />
-                            <motion.div
-                                animate={{ scale: [1, 1.2], opacity: [0.5, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
-                                style={{ background: 'rgba(168, 85, 247, 0.3)' }}
-                                className="absolute inset-0 rounded-xl -z-10"
-                            />
-                        </>
-                    )}
 
-                    <button
-                        onClick={toggleListening}
-                        className="px-8 py-4 rounded-xl text-sm font-bold transition-all flex items-center gap-3 shadow-xl relative overflow-hidden text-white hover:scale-105 border border-white/20"
-                        style={{
-                            background: isListening
-                                ? 'linear-gradient(135deg, #ef4444 0%, #be123c 100%)' // Red gradient for Stop
-                                : 'linear-gradient(135deg, #4c1d95 0%, #d946ef 100%)', // Deep Violet to Fuchsia for Start
-                            boxShadow: isListening
-                                ? '0 0 25px rgba(239, 68, 68, 0.6), inset 0 2px 0 rgba(255,255,255,0.2)'
-                                : '0 8px 25px rgba(124, 58, 237, 0.5), inset 0 2px 0 rgba(255,255,255,0.2)'
-                        }}
-                    >
-                        {/* Shimmer effect */}
-                        {!isListening && (
-                            <motion.div
-                                initial={{ x: '-100%' }}
-                                whileHover={{ x: '200%' }}
-                                transition={{ duration: 0.6, ease: "easeInOut" }}
-                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-                            />
-                        )}
-
-                        <div className={`w-3 h-3 rounded-full transition-all duration-300 shadow-sm ${isListening ? 'bg-white animate-pulse' : 'bg-red-500 group-hover:scale-125'}`} />
-                        <span className="tracking-wide uppercase font-extrabold" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
-                            {isListening ? 'STOP RECORDING' : 'START RECORDING'}
-                        </span>
-                    </button>
-                </div>
+                <button
+                    onClick={toggleListening}
+                    className="px-5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg text-white hover:scale-105"
+                    style={{
+                        background: isListening
+                            ? 'linear-gradient(135deg, #fca5a5 0%, #f87171 100%)'
+                            : 'linear-gradient(135deg, #c4b5fd 0%, #f9a8d4 100%)',
+                        color: '#3b2f4a',
+                        boxShadow: isListening ? '0 6px 20px rgba(248,113,113,0.4)' : '0 6px 20px rgba(167,139,250,0.4)'
+                    }}
+                >
+                    <span className={`w-2.5 h-2.5 rounded-full ${isListening ? 'bg-white animate-pulse' : ''}`}
+                        style={{ background: isListening ? '#fff' : '#f472b6' }} />
+                    <span className="tracking-wide uppercase font-extrabold">
+                        {isListening ? 'Stop' : 'Start'}
+                    </span>
+                </button>
             </div>
 
-            {/* Active indicator */}
+            {/* Voice ID panel */}
+            <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                <div className="flex items-center gap-2 mb-2">
+                    <Fingerprint size={14} style={{ color: '#7c6bc4' }} />
+                    <span className="text-xs font-bold" style={{ color: '#5b4b7a' }}>Voice ID</span>
+                    <span className="text-[10px] text-dim ml-auto">
+                        {ownerProfile ? `Owner: ${ownerProfile.name}` : 'Owner not enrolled'} • {familyProfiles.length} known
+                    </span>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                        onClick={enrollOwner}
+                        disabled={enrolling !== null}
+                        className="text-[11px] px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 flex items-center gap-1.5"
+                        style={{ background: 'linear-gradient(135deg,#c4b5fd,#a5b4fc)', color: '#3b2f4a', border: '1px solid rgba(167,139,250,0.4)' }}
+                    >
+                        <Fingerprint size={12} /> {ownerProfile ? 'Re-enroll My Voice' : 'Enroll My Voice'}
+                    </button>
+                    <button
+                        onClick={() => setEnrolling(enrolling === 'family' ? null : 'family')}
+                        disabled={enrolling === 'owner'}
+                        className="text-[11px] px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 flex items-center gap-1.5"
+                        style={{ background: 'rgba(255,255,255,0.7)', color: '#5b4b7a', border: '1px solid rgba(167,139,250,0.4)' }}
+                    >
+                        <UserPlus size={12} /> Add Family Voice
+                    </button>
+                </div>
+
+                <AnimatePresence>
+                    {enrolling === 'family' && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                            className="flex gap-2 mt-2 items-center">
+                            <input value={familyName} onChange={e => setFamilyName(e.target.value)} placeholder="Name"
+                                className="input-field" style={{ padding: '0.4rem 0.6rem', fontSize: '11px', flex: 1 }} />
+                            <input value={familyRelation} onChange={e => setFamilyRelation(e.target.value)} placeholder="Relation"
+                                className="input-field" style={{ padding: '0.4rem 0.6rem', fontSize: '11px', flex: 1 }} />
+                            <button onClick={enrollFamily}
+                                className="text-[11px] px-3 py-1.5 rounded-lg font-bold"
+                                style={{ background: 'linear-gradient(135deg,#a7f3d0,#6ee7b7)', color: '#2f4a3f', border: '1px solid rgba(110,231,183,0.5)' }}>
+                                Record
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {voiceMsg && <p className="text-[10px] mt-2" style={{ color: '#7c6bc4' }}>{voiceMsg}</p>}
+                {profiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                        {profiles.map(p => (
+                            <span key={p.id} className="text-[10px] px-2 py-0.5 rounded-full"
+                                style={{ background: p.isOwner ? 'rgba(196,181,253,0.5)' : 'rgba(167,243,208,0.5)', color: '#4b3f63', border: '1px solid rgba(167,139,250,0.3)' }}>
+                                {p.isOwner ? '★ ' : ''}{p.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Active speaker switch */}
             <AnimatePresence>
                 {isListening && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mb-4"
-                    >
-                        <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-4">
+                        <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(167,139,250,0.25)' }}>
                             <div className="flex items-center justify-between text-xs font-medium text-dim">
                                 <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                    Recording Active
+                                    <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
+                                    Recording Active • voice-matched
                                 </span>
-                                <span className="uppercase tracking-wider text-[10px] opacity-70">Tap listener</span>
                             </div>
-
-                            <div className="flex bg-black/40 rounded-lg p-1 gap-1 relative">
-                                <button
-                                    onClick={() => switchSpeaker('You')}
-                                    className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${currentSpeaker === 'You'
-                                        ? 'bg-indigo-600 text-white shadow-lg ring-1 ring-white/20'
-                                        : 'text-dim hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    <Users size={14} className={currentSpeaker === 'You' ? 'opacity-100' : 'opacity-50'} />
-                                    Me {isManualSwitchRef.current && currentSpeaker === 'You' && <span className="text-[10px] ml-1 bg-white/20 px-1 rounded">Locked</span>}
+                            <div className="flex rounded-lg p-1 gap-1" style={{ background: 'rgba(255,255,255,0.6)' }}>
+                                <button onClick={() => updateSpeaker('You', true)}
+                                    className="flex-1 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                    style={{ background: currentSpeaker === 'You' ? 'linear-gradient(135deg,#c4b5fd,#a5b4fc)' : 'transparent', color: currentSpeaker === 'You' ? '#3b2f4a' : '#8d86a0' }}>
+                                    <Users size={14} /> Me
                                 </button>
-                                <button
-                                    onClick={() => switchSpeaker('Visitor')}
-                                    className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 ${currentSpeaker === 'Visitor'
-                                        ? 'bg-emerald-600 text-white shadow-lg ring-1 ring-white/20'
-                                        : 'text-dim hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    <Users size={14} className={currentSpeaker === 'Visitor' ? 'opacity-100' : 'opacity-50'} />
-                                    {visitorInfo?.name || 'Visitor'} {isManualSwitchRef.current && currentSpeaker === 'Visitor' && <span className="text-[10px] ml-1 bg-white/20 px-1 rounded">Locked</span>}
+                                <button onClick={() => updateSpeaker('Visitor', true)}
+                                    className="flex-1 py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                    style={{ background: currentSpeaker === 'Visitor' ? 'linear-gradient(135deg,#a7f3d0,#6ee7b7)' : 'transparent', color: currentSpeaker === 'Visitor' ? '#2f4a3f' : '#8d86a0' }}>
+                                    <Users size={14} /> {visitorInfo?.name || 'Visitor'}
                                 </button>
                             </div>
                         </div>
@@ -821,25 +555,32 @@ TRANSCRIPT:
                 )}
             </AnimatePresence>
 
+            {/* Repeated-question reassurance */}
+            <AnimatePresence>
+                {repeatedNotice && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        className="mb-3 p-2.5 rounded-lg flex items-start gap-2"
+                        style={{ background: 'rgba(253,243,192,0.6)', border: '1px solid rgba(240,200,120,0.5)' }}>
+                        <HelpCircle size={14} style={{ color: '#a9812a', marginTop: 1 }} />
+                        <p className="text-[11px]" style={{ color: '#7a5c1e' }}>{repeatedNotice}</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Conversation log */}
             {conversations.length > 0 && (
-                <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                <div className="space-y-2 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
                     {conversations.slice(-5).map((entry, idx) => (
-                        <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className={`text-xs p-2 rounded border ${(entry.speaker === 'You' || entry.speaker === patientName)
-                                ? 'bg-indigo-500/10 border-indigo-500/30'
-                                : 'bg-emerald-500/10 border-emerald-500/30'
-                                }`}
-                        >
+                        <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            className="text-xs p-2 rounded border"
+                            style={{
+                                background: (entry.speaker === 'You' || entry.speaker === patientName) ? 'rgba(196,181,253,0.18)' : 'rgba(167,243,208,0.18)',
+                                borderColor: (entry.speaker === 'You' || entry.speaker === patientName) ? 'rgba(167,139,250,0.35)' : 'rgba(110,231,183,0.4)'
+                            }}>
                             <div className="flex items-center gap-2 mb-1">
                                 <Users size={10} />
                                 <span className="font-bold">{entry.speaker}</span>
-                                <span className="text-dim">
-                                    {entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                                <span className="text-dim">{entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                             <p className="text-dim">"{entry.text}"</p>
                         </motion.div>
@@ -849,10 +590,10 @@ TRANSCRIPT:
 
             {/* Summary */}
             {lastSummary && (
-                <div className="p-2 rounded bg-purple-500/10 border border-purple-500/30 mb-3">
+                <div className="p-2 rounded mb-3" style={{ background: 'rgba(221,208,247,0.35)', border: '1px solid rgba(167,139,250,0.35)' }}>
                     <div className="flex items-center gap-2 mb-1">
-                        <MessageSquare size={12} className="text-purple-400" />
-                        <span className="text-xs font-bold text-purple-400">AI Summary</span>
+                        <MessageSquare size={12} style={{ color: '#7c6bc4' }} />
+                        <span className="text-xs font-bold" style={{ color: '#7c6bc4' }}>AI Summary</span>
                     </div>
                     <p className="text-xs text-dim">{lastSummary}</p>
                 </div>
@@ -861,56 +602,21 @@ TRANSCRIPT:
             {/* Actions */}
             {conversations.length > 0 && (
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => analyzeConversation(conversations)}
-                        disabled={isProcessing}
-                        className="flex-1 text-xs py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        style={{
-                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                            border: '1px solid rgba(139, 92, 246, 0.3)',
-                            boxShadow: '0 2px 10px rgba(99, 102, 241, 0.2)',
-                            color: 'white'
-                        }}
-                    >
-                        {isProcessing ? (
-                            <>
-                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Analyzing...
-                            </>
-                        ) : (
-                            <>
-                                <MessageSquare size={14} />
-                                Analyze Conservation
-                            </>
-                        )}
+                    <button onClick={() => analyzeConversation(conversations)} disabled={isProcessing}
+                        className="flex-1 text-xs py-2 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{ background: 'linear-gradient(135deg,#c4b5fd,#a5b4fc)', color: '#3b2f4a', border: '1px solid rgba(167,139,250,0.4)' }}>
+                        {isProcessing ? 'Analyzing...' : <><MessageSquare size={14} /> Analyze Conversation</>}
                     </button>
-                    <button
-                        onClick={clearConversation}
-                        className="text-xs py-2 px-4 rounded-lg font-medium transition-all flex items-center gap-2 text-gray-300 hover:text-white"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                            e.currentTarget.style.color = '#fca5a5';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                            e.currentTarget.style.color = '#d1d5db';
-                        }}
-                    >
-                        <Trash2 size={14} />
-                        Clear
+                    <button onClick={clearConversation}
+                        className="text-xs py-2 px-4 rounded-lg font-medium transition-all flex items-center gap-2"
+                        style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(167,139,250,0.25)', color: '#8d86a0' }}>
+                        <Trash2 size={14} /> Clear
                     </button>
                 </div>
             )}
 
-            {/* No speech API warning */}
-            {!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window) && (
-                <p className="text-xs text-red-400 mt-2">
+            {!speechSupported && (
+                <p className="text-xs mt-2" style={{ color: '#c26d6d' }}>
                     ⚠️ Speech recognition not supported in this browser. Use Chrome for best results.
                 </p>
             )}

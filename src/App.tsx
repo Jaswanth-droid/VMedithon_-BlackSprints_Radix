@@ -17,7 +17,8 @@ import {
     Shield,
     FileText,
     Grid,
-    CheckCircle2
+    CheckCircle2,
+    Sun
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from './Modal';
@@ -29,15 +30,11 @@ import NeuralBackground from './NeuralBackground';
 import ConversationRecorder from './ConversationRecorder';
 import VoiceAssistant from './VoiceAssistant';
 import MemoryDashboard from './MemoryDashboard';
-import DiseaseProgressionAnalysis from './DiseaseProgressionAnalysis';
-import BehaviorAnalysis from './BehaviorAnalysis';
-import CaregiverPortal from './CaregiverPortal';
 import MedicationReminderUI from './MedicationReminderUI';
-import { getProgressionHistory, getBehaviorIncidents } from './memoryDatabase';
-import { ProgressionRecord } from './diseaseAnalytics';
-import { BehaviorIncident } from './behaviorMentalHealth';
+import MedicationAlarm from './MedicationAlarm';
+import RecallCard, { type RecognizedPerson } from './RecallCard';
 
-type ActiveViewType = 'vision' | 'progression' | 'behavior' | 'caregiver' | 'medication';
+type ActiveViewType = 'vision' | 'medication';
 
 function App() {
     const [status, setStatus] = useState('Standby');
@@ -70,8 +67,10 @@ function App() {
     // Navigation & New Modules State
     const [activeView, setActiveView] = useState<ActiveViewType>('vision');
     const [showMedicationModal, setShowMedicationModal] = useState(false);
-    const [progressionRecords, setProgressionRecords] = useState<ProgressionRecord[]>([]);
-    const [behaviorLogs, setBehaviorLogs] = useState<BehaviorIncident[]>([]);
+
+    // Voice/face recognition -> "Who is this?" recall card + familiar-voice greeting
+    const [recognizedPerson, setRecognizedPerson] = useState<RecognizedPerson | null>(null);
+    const [greetingPerson, setGreetingPerson] = useState<{ name: string; relation: string } | null>(null);
 
     // Cognitive alert from CBAE module
     const [cognitiveAlert, setCognitiveAlert] = useState<CognitiveAlert | null>(null);
@@ -117,24 +116,6 @@ function App() {
             localStorage.setItem('mnemosync_api_key', apiKey);
         }
     }, [apiKey]);
-
-    // Load progression & behavior records on mount
-    useEffect(() => {
-        loadModuleData();
-    }, []);
-
-    const loadModuleData = async () => {
-        try {
-            const [prog, beh] = await Promise.all([
-                getProgressionHistory(),
-                getBehaviorIncidents()
-            ]);
-            setProgressionRecords(prog);
-            setBehaviorLogs(beh);
-        } catch (e) {
-            console.error('Error loading module data:', e);
-        }
-    };
 
     // Initialize models
     useEffect(() => {
@@ -346,35 +327,6 @@ function App() {
                         </button>
 
                         <button
-                            onClick={() => {
-                                setActiveView('progression');
-                                loadModuleData();
-                            }}
-                            className={`tab-btn ${activeView === 'progression' ? 'active' : ''}`}
-                        >
-                            <TrendingUp size={14} /> Disease Progression
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                setActiveView('behavior');
-                                loadModuleData();
-                            }}
-                            className={`tab-btn ${activeView === 'behavior' ? 'active' : ''}`}
-                        >
-                            <Heart size={14} /> Behavior & Mental Health
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                setActiveView('caregiver');
-                                loadModuleData();
-                            }}
-                            className={`tab-btn ${activeView === 'caregiver' ? 'active' : ''}`}
-                        >
-                            <Shield size={14} /> Caregiver Reports
-                        </button>
-                        <button
                             onClick={() => { setActiveView('medication'); setShowMedicationModal(true); }}
                             className={`tab-btn ${activeView === 'medication' ? 'active' : ''}`}
                         >
@@ -398,6 +350,11 @@ function App() {
                     <div className="assistive-grid flex-1 overflow-hidden" style={{ height: 'calc(100% - 60px)', padding: 0 }}>
                         {/* Left Column: Task Planner & Memory Log */}
                         <aside className="task-aside">
+                            <RecallCard
+                                person={recognizedPerson}
+                                patientName="User"
+                                onDismiss={() => setRecognizedPerson(null)}
+                            />
                             <TiltCard className="card card-enhanced flex-1" style={{ overflow: 'auto' }}>
                                 <div className="flex items-center gap-3 mb-4">
                                     <div style={{ background: 'linear-gradient(135deg, #34d399, #10b981)', padding: '0.5rem', borderRadius: '0.75rem' }}>
@@ -691,6 +648,20 @@ function App() {
                                                     : ['User'],
                                             });
                                         }}
+                                        onPersonRecognized={(info) => {
+                                            setRecognizedPerson({ ...info, ts: Date.now() });
+                                            if (info.name && info.name !== 'User') {
+                                                setGreetingPerson({ name: info.name, relation: info.relation });
+                                            }
+                                        }}
+                                        onRepeatedQuestion={(question, times) => {
+                                            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            setMemoryLog(prev => [{ time: timeStr, event: `Repeated question (×${times}): "${question}"` }, ...prev].slice(0, 10));
+                                        }}
+                                        onOccasion={(occ) => {
+                                            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            setMemoryLog(prev => [{ time: timeStr, event: `📌 Occasion: ${occ.title} — ${occ.when}` }, ...prev].slice(0, 10));
+                                        }}
                                         patientName="User"
                                     />
                                 )}
@@ -700,6 +671,8 @@ function App() {
                                     lastSummary={lastConversationSummary}
                                     identifiedPerson={identifiedPerson}
                                     visitorInfo={lastVisitorInfo}
+                                    greetingPerson={greetingPerson}
+                                    onGreetingSpoken={() => setGreetingPerson(null)}
                                     patientName="User"
                                 />
 
@@ -755,43 +728,6 @@ function App() {
                     </div>
                 )}
 
-                {/* View 2: DISEASE PROGRESSION ANALYSIS */}
-                {activeView === 'progression' && (
-                    <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 60px)' }}>
-                        <DiseaseProgressionAnalysis
-                            primaryModel={primaryModel}
-                            backupModel={backupModel}
-                            patientName="Patient"
-                            onNavigateToCaregiver={() => setActiveView('caregiver')}
-                        />
-                    </div>
-                )}
-
-                {/* View 3: BEHAVIOR ANALYSIS & MENTAL HEALTH */}
-                {activeView === 'behavior' && (
-                    <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 60px)' }}>
-                        <BehaviorAnalysis
-                            primaryModel={primaryModel}
-                            backupModel={backupModel}
-                            patientName="Patient"
-                            onNavigateToCaregiver={() => setActiveView('caregiver')}
-                        />
-                    </div>
-                )}
-
-                {/* View 4: CAREGIVER PORTAL & MEDICAL REPORTS */}
-                {activeView === 'caregiver' && (
-                    <div className="flex-1 overflow-hidden" style={{ height: 'calc(100% - 60px)' }}>
-                        <CaregiverPortal
-                            primaryModel={primaryModel}
-                            backupModel={backupModel}
-                            patientName="Patient"
-                            progressionHistory={progressionRecords}
-                            behaviorIncidents={behaviorLogs}
-                            onClose={() => setActiveView('vision')}
-                        />
-                    </div>
-                )}
                 {/* View 5: MEDICATION REMINDER */}
                 {showMedicationModal && (
                     <Modal onClose={() => setShowMedicationModal(false)} title="Medication Reminders">
@@ -799,6 +735,9 @@ function App() {
                     </Modal>
                 )}
             </div>
+
+            {/* Exact-time medication alarm popup (phone-timer style) */}
+            <MedicationAlarm />
 
             {/* Memory Vault Modal */}
             <MemoryDashboard

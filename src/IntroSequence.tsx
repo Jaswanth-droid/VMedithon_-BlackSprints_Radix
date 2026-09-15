@@ -1,133 +1,134 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Float, Sparkles, useTexture } from '@react-three/drei';
-import * as THREE from 'three';
 
 interface IntroSequenceProps {
     onComplete: () => void;
     mascotSrc: string;
 }
 
-const PASTELS = ['#f9c8dd', '#bcdcf7', '#c4ecd9', '#ffe0c2', '#ddd0f7', '#fdf3c0'];
-
-function MascotCore({ mascotSrc }: { mascotSrc: string }) {
-    const texture = useTexture(mascotSrc);
-    const ringA = useRef<THREE.Mesh>(null);
-    const ringB = useRef<THREE.Mesh>(null);
-    const ringC = useRef<THREE.Mesh>(null);
-    const core = useRef<THREE.Mesh>(null);
-
-    useFrame((state) => {
-        const t = state.clock.elapsedTime;
-        if (ringA.current) {
-            ringA.current.rotation.x = t * 0.35;
-            ringA.current.rotation.y = t * 0.22;
-        }
-        if (ringB.current) {
-            ringB.current.rotation.y = -t * 0.3;
-            ringB.current.rotation.z = t * 0.18;
-        }
-        if (ringC.current) {
-            ringC.current.rotation.z = -t * 0.24;
-            ringC.current.rotation.x = Math.sin(t * 0.4) * 0.6;
-        }
-        if (core.current) {
-            const s = 1 + Math.sin(t * 1.6) * 0.04;
-            core.current.scale.setScalar(s);
-        }
-    });
-
-    return (
-        <group>
-            <mesh ref={core}>
-                <circleGeometry args={[1.55, 64]} />
-                <meshBasicMaterial map={texture} toneMapped={false} />
-            </mesh>
-            <mesh ref={ringA} rotation={[0.6, 0, 0]}>
-                <torusGeometry args={[2.1, 0.05, 24, 96]} />
-                <meshStandardMaterial color="#f9a8d4" emissive="#f9a8d4" emissiveIntensity={0.5} roughness={0.2} />
-            </mesh>
-            <mesh ref={ringB} rotation={[0, 0.5, 0.4]}>
-                <torusGeometry args={[2.5, 0.04, 24, 96]} />
-                <meshStandardMaterial color="#a5b8f3" emissive="#a5b8f3" emissiveIntensity={0.5} roughness={0.2} />
-            </mesh>
-            <mesh ref={ringC} rotation={[0.2, 0, -0.5]}>
-                <torusGeometry args={[2.9, 0.03, 24, 96]} />
-                <meshStandardMaterial color="#9adfc0" emissive="#9adfc0" emissiveIntensity={0.5} roughness={0.2} />
-            </mesh>
-        </group>
-    );
-}
-
-function OrbitBlob({ radius, height, color, scale, speed, offset }: {
-    radius: number; height: number; color: string; scale: number; speed: number; offset: number;
-}) {
-    const ref = useRef<THREE.Mesh>(null);
-
-    useFrame((state) => {
-        if (!ref.current) return;
-        const t = state.clock.elapsedTime * speed + offset;
-        ref.current.position.set(Math.cos(t) * radius, Math.sin(t * 1.3) * height, Math.sin(t) * radius * 0.6);
-        ref.current.rotation.x = t * 0.4;
-        ref.current.rotation.y = t * 0.3;
-    });
-
-    return (
-        <mesh ref={ref} scale={scale}>
-            <icosahedronGeometry args={[1, 0]} />
-            <meshStandardMaterial color={color} roughness={0.3} emissive={color} emissiveIntensity={0.15} transparent opacity={0.9} />
-        </mesh>
-    );
-}
-
-function CinematicCamera({ reveal }: { reveal: boolean }) {
-    useFrame((state, delta) => {
-        const t = Math.min(state.clock.elapsedTime / 7, 1);
-        const ease = 1 - Math.pow(1 - t, 3);
-        const targetZ = reveal ? 6.2 : 16 - ease * 8;
-        const targetY = reveal ? 0.2 : 2.6 - ease * 2.2;
-        state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, targetZ, 1.6, delta);
-        state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetY, 1.6, delta);
-        state.camera.position.x = Math.sin(state.clock.elapsedTime * 0.18) * 0.6;
-        state.camera.lookAt(0, 0, 0);
-    });
-    return null;
-}
-
-function IntroScene({ mascotSrc, reveal }: { mascotSrc: string; reveal: boolean }) {
-    return (
-        <>
-            <CinematicCamera reveal={reveal} />
-            <ambientLight intensity={1.2} color="#fff2f9" />
-            <directionalLight position={[5, 6, 8]} intensity={1.2} color="#ffe0ef" />
-            <pointLight position={[-6, -3, 4]} intensity={0.7} color="#cfe3ff" />
-            <Float speed={1.2} rotationIntensity={0.2} floatIntensity={0.6}>
-                <MascotCore mascotSrc={mascotSrc} />
-            </Float>
-            {PASTELS.map((color, i) => (
-                <OrbitBlob
-                    key={i}
-                    radius={4.5 + (i % 3) * 1.6}
-                    height={1.4 + (i % 2) * 0.8}
-                    color={color}
-                    scale={0.35 + (i % 4) * 0.14}
-                    speed={0.22 + (i % 5) * 0.05}
-                    offset={i * 1.1}
-                />
-            ))}
-            <Sparkles count={220} scale={[18, 10, 10]} size={4} speed={0.4} opacity={0.7} color="#d8b4fe" />
-        </>
-    );
+// Enhanced particle with more properties
+interface Particle {
+    id: number;
+    x: number;
+    y: number;
+    size: number;
+    color: string;
+    velocity: { x: number; y: number };
+    opacity: number;
+    life: number;
 }
 
 export default function IntroSequence({ onComplete, mascotSrc }: IntroSequenceProps) {
-    const [phase, setPhase] = useState<'cinematic' | 'reveal'>('cinematic');
+    const [phase, setPhase] = useState<'video' | 'transition' | 'reveal'>('video');
+    const [videoEnded, setVideoEnded] = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const animationRef = useRef<number | null>(null);
+    const particlesRef = useRef<Particle[]>([]);
 
+    // Initialize particles
     useEffect(() => {
-        const t = setTimeout(() => setPhase('reveal'), 7000);
-        return () => clearTimeout(t);
-    }, []);
+        if (phase !== 'transition' && phase !== 'reveal') return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Compensate for 0.75 scale in coordinates
+        canvas.width = window.innerWidth * 1.3333;
+        canvas.height = window.innerHeight * 1.3333;
+
+        // Create particles
+        const colors = ['#818cf8', '#a855f7', '#34d399', '#60a5fa', '#f472b6'];
+        particlesRef.current = Array.from({ length: 100 }, (_, i) => ({
+            id: i,
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: 2 + Math.random() * 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            velocity: {
+                x: (Math.random() - 0.5) * 2,
+                y: (Math.random() - 0.5) * 2
+            },
+            opacity: 0.3 + Math.random() * 0.7,
+            life: Math.random()
+        }));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const animate = () => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            particlesRef.current.forEach((p) => {
+                // Update position
+                p.x += p.velocity.x;
+                p.y += p.velocity.y;
+                p.life += 0.01;
+
+                // Wrap around edges
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+
+                // Pulsing opacity
+                const pulse = 0.5 + Math.sin(p.life * 3) * 0.3;
+
+                // Draw particle with glow
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.opacity * pulse;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = p.color;
+                ctx.fill();
+
+                // Draw connection lines to nearby particles
+                particlesRef.current.forEach((p2) => {
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100 && dist > 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = p.color;
+                        ctx.globalAlpha = (1 - dist / 100) * 0.15;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                });
+            });
+
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            animationRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        return () => {
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+            }
+        };
+    }, [phase]);
+
+    // Handle video end
+    const handleVideoEnd = () => {
+        setVideoEnded(true);
+        setPhase('transition');
+        setTimeout(() => setPhase('reveal'), 1500);
+        setTimeout(() => onComplete(), 5000);
+    };
+
+    // Auto-timeout for video
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (phase === 'video') handleVideoEnd();
+        }, 30000);
+        return () => clearTimeout(timeout);
+    }, [phase]);
 
     return (
         <motion.div
@@ -137,136 +138,240 @@ export default function IntroSequence({ onComplete, mascotSrc }: IntroSequencePr
             style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'linear-gradient(160deg, #fdf1f7 0%, #eef4ff 45%, #f0fbf4 100%)',
+                background: '#000',
                 zIndex: 1000,
-                overflow: 'hidden',
+                overflow: 'hidden'
             }}
         >
-            {/* Real-time 3D cinematic — renders at native device resolution (true 4K on 4K displays) */}
-            <Canvas
-                dpr={[1, 3]}
-                camera={{ position: [0, 2.6, 16], fov: 50 }}
-                gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-            >
-                <fog attach="fog" args={['#fdf4fa', 12, 30]} />
-                <Suspense fallback={null}>
-                    <IntroScene mascotSrc={mascotSrc} reveal={phase === 'reveal'} />
-                </Suspense>
-            </Canvas>
+            {/* Video Phase */}
+            <AnimatePresence>
+                {phase === 'video' && (
+                    <motion.video
+                        key="intro-video"
+                        initial={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.1 }}
+                        transition={{ duration: 1.5, ease: 'easeInOut' }}
+                        autoPlay
+                        muted
+                        playsInline
+                        onEnded={handleVideoEnd}
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                        }}
+                    >
+                        <source src="/intro.mp4" type="video/mp4" />
+                    </motion.video>
+                )}
+            </AnimatePresence>
 
-            {/* Reveal overlay */}
+            {/* Particle Canvas - Transition & Reveal */}
+            {(phase === 'transition' || phase === 'reveal') && (
+                <canvas
+                    ref={canvasRef}
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%'
+                    }}
+                />
+            )}
+
+            {/* Transition - Glowing Orb */}
+            <AnimatePresence>
+                {phase === 'transition' && (
+                    <motion.div
+                        key="orb"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0.8] }}
+                        exit={{ scale: 3, opacity: 0 }}
+                        transition={{ duration: 1.5, ease: 'easeOut' }}
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            width: 200,
+                            height: 200,
+                            marginLeft: -100,
+                            marginTop: -100,
+                            borderRadius: '50%',
+                            background: 'radial-gradient(circle, rgba(129, 140, 248, 0.6) 0%, rgba(168, 85, 247, 0.3) 40%, transparent 70%)',
+                            boxShadow: '0 0 100px 50px rgba(129, 140, 248, 0.3)',
+                            filter: 'blur(10px)'
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Reveal Phase - Goddess */}
             <AnimatePresence>
                 {phase === 'reveal' && (
                     <motion.div
-                        key="reveal"
+                        key="goddess-reveal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 1.2 }}
                         style={{
                             position: 'absolute',
                             inset: 0,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            paddingBottom: '9vh',
-                            pointerEvents: 'none',
+                            justifyContent: 'center'
                         }}
                     >
+                        {/* Animated Rings */}
+                        {[1, 2, 3, 4].map((ring) => (
+                            <motion.div
+                                key={ring}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{
+                                    scale: [1, 1.2, 1],
+                                    opacity: [0.1, 0.3, 0.1],
+                                    rotate: ring % 2 === 0 ? 360 : -360
+                                }}
+                                transition={{
+                                    scale: { duration: 3 + ring * 0.5, repeat: Infinity },
+                                    opacity: { duration: 3 + ring * 0.5, repeat: Infinity },
+                                    rotate: { duration: 10 + ring * 5, repeat: Infinity, ease: 'linear' }
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    width: 200 + ring * 60,
+                                    height: 200 + ring * 60,
+                                    borderRadius: '50%',
+                                    border: `1px solid rgba(129, 140, 248, ${0.4 - ring * 0.08})`,
+                                    boxShadow: `0 0 ${30 + ring * 10}px rgba(129, 140, 248, 0.1)`
+                                }}
+                            />
+                        ))}
+
+                        {/* Goddess Image */}
+                        <motion.div
+                            initial={{ scale: 0, y: 50 }}
+                            animate={{ scale: 1, y: 0 }}
+                            transition={{ delay: 0.3, type: 'spring', stiffness: 100, damping: 15 }}
+                            style={{ position: 'relative', zIndex: 10 }}
+                        >
+                            <motion.div
+                                animate={{
+                                    boxShadow: [
+                                        '0 0 60px rgba(129, 140, 248, 0.4)',
+                                        '0 0 100px rgba(168, 85, 247, 0.6)',
+                                        '0 0 60px rgba(129, 140, 248, 0.4)'
+                                    ]
+                                }}
+                                transition={{ duration: 3, repeat: Infinity }}
+                                style={{
+                                    width: 180,
+                                    height: 180,
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    border: '3px solid rgba(129, 140, 248, 0.5)'
+                                }}
+                            >
+                                <img
+                                    src={mascotSrc}
+                                    alt="Mnemosync"
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        objectPosition: 'top'
+                                    }}
+                                />
+                            </motion.div>
+                        </motion.div>
+
+                        {/* Text */}
                         <motion.h1
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
+                            transition={{ delay: 0.8 }}
                             style={{
-                                fontSize: '3rem',
-                                fontWeight: 800,
-                                background: 'linear-gradient(135deg, #b28af0, #ef8ab8, #6fc7ae)',
+                                fontSize: '2.5rem',
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, #818cf8, #a855f7, #34d399)',
                                 backgroundClip: 'text',
                                 WebkitBackgroundClip: 'text',
                                 color: 'transparent',
-                                letterSpacing: '0.12em',
-                                textShadow: '0 2px 24px rgba(255,255,255,0.6)',
+                                marginTop: '2rem',
+                                letterSpacing: '0.1em'
                             }}
                         >
                             MNEMOSYNC
                         </motion.h1>
+
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 0.7 }}
-                            style={{ color: '#7d7591', fontSize: '1rem', letterSpacing: '0.32em', marginTop: '0.4rem', textTransform: 'uppercase', fontWeight: 600 }}
+                            transition={{ delay: 1.2 }}
+                            style={{
+                                color: '#9ca3af',
+                                fontSize: '1rem',
+                                letterSpacing: '0.3em',
+                                marginTop: '0.5rem',
+                                textTransform: 'uppercase'
+                            }}
                         >
                             Your Eternal Companion
                         </motion.p>
+
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 1.1 }}
-                            style={{ color: '#8d86a0', fontStyle: 'italic', marginTop: '1.2rem', maxWidth: '420px', textAlign: 'center', lineHeight: 1.8 }}
+                            transition={{ delay: 1.6 }}
+                            style={{
+                                color: '#6b7280',
+                                fontStyle: 'italic',
+                                marginTop: '1.5rem',
+                                maxWidth: '400px',
+                                textAlign: 'center',
+                                lineHeight: 1.8
+                            }}
                         >
                             "I am the keeper of memories. Let me be your eyes..."
                         </motion.p>
-                        <motion.button
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 1.5 }}
-                            whileHover={{ scale: 1.06 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={onComplete}
-                            style={{
-                                pointerEvents: 'auto',
-                                marginTop: '2rem',
-                                padding: '1.1rem 3rem',
-                                fontSize: '1.1rem',
-                                fontWeight: 700,
-                                color: 'white',
-                                background: 'linear-gradient(135deg, #c4b5fd, #f9a8d4)',
-                                border: 'none',
-                                borderRadius: '999px',
-                                cursor: 'pointer',
-                                boxShadow: '0 18px 40px -14px rgba(178, 138, 240, 0.65)',
-                                letterSpacing: '0.06em',
-                            }}
-                        >
-                            Enter Mnemosync
-                        </motion.button>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Skip button — always visible */}
+            {/* Skip Button - Always visible */}
             <motion.button
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.75 }}
+                animate={{ opacity: 0.5 }}
                 whileHover={{ opacity: 1, scale: 1.05 }}
                 onClick={onComplete}
                 style={{
                     position: 'absolute',
                     bottom: '2rem',
                     right: '2rem',
-                    background: 'rgba(255,255,255,0.65)',
-                    border: '1px solid rgba(167,139,250,0.4)',
-                    color: '#6d6480',
+                    background: 'rgba(0,0,0,0.6)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
                     padding: '0.75rem 1.5rem',
                     borderRadius: '2rem',
                     cursor: 'pointer',
                     fontSize: '0.85rem',
-                    fontWeight: 600,
                     letterSpacing: '0.1em',
                     backdropFilter: 'blur(10px)',
                     zIndex: 100,
+                    transition: 'all 0.3s ease'
                 }}
             >
                 SKIP →
             </motion.button>
 
-            {/* Soft vignette */}
+            {/* Vignette Overlay */}
             <div
                 style={{
                     position: 'absolute',
                     inset: 0,
                     pointerEvents: 'none',
-                    background: 'radial-gradient(ellipse at center, transparent 55%, rgba(233, 221, 245, 0.5) 100%)',
+                    background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)'
                 }}
             />
         </motion.div>
