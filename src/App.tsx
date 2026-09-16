@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { connectHub, emitFaceDetected, emitConversationEnded, onCognitiveAlert, emitPatientAssistRequest, emitPatientDistressSignal, emitPatientCameraFrame, UserActivityEvent, CognitiveAlert } from './socketClient';
+import { connectHub, emitFaceDetected, emitConversationEnded, onCognitiveAlert, emitPatientAssistRequest, emitPatientDistressSignal, emitPatientCameraFrame, emitPatientReplyToCaregiver, UserActivityEvent, CognitiveAlert } from './socketClient';
+
 import { 
     Brain, 
     User, 
@@ -295,17 +296,26 @@ function App() {
         });
 
         const handleVoiceAssist = (data: { message: string; sender?: string }) => {
-            console.log('[App] Caregiver voice assistance received:', data);
-            setCaregiverVoiceAlert({ message: data.message, sender: data.sender || 'Caregiver Ananya' });
+            console.log('[App] Caregiver assistance received:', data);
+            const senderName = data.sender || 'Caregiver Ananya';
+            setCaregiverVoiceAlert({ message: data.message, sender: senderName });
+            
             if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(data.message);
+                const u = new SpeechSynthesisUtterance(`${senderName} says: ${data.message}`);
                 u.rate = 0.92;
                 u.pitch = 1.05;
+                u.onend = () => {
+                    console.log('[App] Spoke caregiver assistance aloud. Sending AI reply confirmation to Caregiver Portal...');
+                    emitPatientReplyToCaregiver(`Mrs. Sunita heard and acknowledged: "${data.message}"`, data.message);
+                };
                 window.speechSynthesis.speak(u);
+            } else {
+                emitPatientReplyToCaregiver(`Mrs. Sunita received guidance: "${data.message}"`, data.message);
             }
             setTimeout(() => setCaregiverVoiceAlert(null), 16000);
         };
+
 
         socket.on('caregiver_voice_assist', handleVoiceAssist);
 
