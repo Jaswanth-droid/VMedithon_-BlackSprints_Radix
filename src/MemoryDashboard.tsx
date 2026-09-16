@@ -18,6 +18,48 @@ interface MemoryDashboardProps {
 
 type TabType = 'dates' | 'conversations' | 'people' | 'notes';
 
+// Helper to accurately classify speaker as User vs Visitor
+function isUserSpeaker(speaker?: string, text?: string, participants?: string[]): boolean {
+    const s = (speaker || '').toLowerCase().trim();
+    const t = (text || '').toLowerCase().trim();
+
+    // 1. Explicit user/self identities
+    if (['you', 'user', 'patient', 'me', 'self', 'owner', 'host', 'sunita', 'sunita sharma'].includes(s)) {
+        return true;
+    }
+
+    // 2. Explicit match against visitor participants (e.g. "Rakesh", "Arjun", "Priya")
+    if (participants && participants.length > 0) {
+        const matchesVisitor = participants.some(p => {
+            const pNorm = p.toLowerCase().trim();
+            return !['user', 'you', 'patient', 'sunita', 'sunita sharma', 'owner'].includes(pNorm) &&
+                   (s === pNorm || s.includes(pNorm) || (pNorm.length > 2 && s.startsWith(pNorm)));
+        });
+        if (matchesVisitor) {
+            return false;
+        }
+    }
+
+    if (['visitor', 'guest', 'doctor', 'nurse', 'caregiver', 'family'].includes(s)) {
+        return false;
+    }
+
+    // 3. Conversational linguistics based on message content
+    // User / host typical questions and polite responses:
+    if (/^(?:hi|hello|hey|good\s+morning|good\s+afternoon|good\s+evening)[,\s]*(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|how\s+can\s+i\s+help|sure\s+i(?:'ll|\s+will)\s+be\s+there|sure[,\s!]|thank\s+you|welcome)/i.test(t) ||
+        /^(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|how\s+are\s+you|how\s+can\s+i\s+help|sure\s+i(?:'ll|\s+will)\s+be\s+there|sure[,\s!]|thank\s+you|welcome)/i.test(t)) {
+        return true;
+    }
+
+    // Visitor typical responses / introductions / statements:
+    if (/^(?:my\s+name\s+is|i\s+am\s+|i'm\s+|i\s+came\s+to|i\s+am\s+here\s+for|i'm\s+here\s+for|we\s+will\s+be\s+having|tomorrow\s+i\s+have|i\s+have\s+my|actually\s+i)/i.test(t)) {
+        return false;
+    }
+
+    // Default fallback: if speaker includes 'you' or 'user'
+    return s.includes('you') || s.includes('user') || s.includes('patient');
+}
+
 export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProps) {
     const [dates, setDates] = useState<ImportantDate[]>([]);
     const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -132,21 +174,33 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                     timestamp: new Date(Date.now() - 1000 * 60 * 23),
                     participants: ['Arjun Sharma'],
                     summary: 'Team Sync - Discussed API endpoints.',
-                    fullTranscript: []
+                    fullTranscript: [
+                        { speaker: 'You', text: 'Hi Arjun, how is the backend API integration progressing?', timestamp: new Date(Date.now() - 1000 * 60 * 25) },
+                        { speaker: 'Arjun Sharma', text: 'It is going smoothly! We finalized the endpoints today.', timestamp: new Date(Date.now() - 1000 * 60 * 24) },
+                        { speaker: 'You', text: 'Wonderful, let us review them tomorrow morning.', timestamp: new Date(Date.now() - 1000 * 60 * 23) }
+                    ]
                 },
                 {
                     id: generateId(),
                     timestamp: new Date(Date.now() - 1000 * 60 * 30),
                     participants: ['Priya Patel'],
                     summary: 'UX Review - Finalized layout designs.',
-                    fullTranscript: []
+                    fullTranscript: [
+                        { speaker: 'Priya Patel', text: 'Hello! I brought the updated high-contrast layout designs for review.', timestamp: new Date(Date.now() - 1000 * 60 * 33) },
+                        { speaker: 'You', text: 'Thanks Priya, the high-contrast view makes text very easy to read.', timestamp: new Date(Date.now() - 1000 * 60 * 31) },
+                        { speaker: 'Priya Patel', text: 'Glad you like it! I will deploy the changes to the dashboard now.', timestamp: new Date(Date.now() - 1000 * 60 * 30) }
+                    ]
                 },
                 {
                     id: generateId(),
                     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
                     participants: ['Ananya Iyer'],
                     summary: 'Project Delta - Finalized requirements.',
-                    fullTranscript: []
+                    fullTranscript: [
+                        { speaker: 'You', text: 'Hi Ananya, what are the next milestones for Delta?', timestamp: new Date(Date.now() - 1000 * 60 * 125) },
+                        { speaker: 'Ananya Iyer', text: 'We are completing the memory sync engine this week.', timestamp: new Date(Date.now() - 1000 * 60 * 122) },
+                        { speaker: 'You', text: 'Great, keep me posted on the deployment.', timestamp: new Date(Date.now() - 1000 * 60 * 120) }
+                    ]
                 }
             ];
 
@@ -403,13 +457,15 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                             const entries: { speaker: string; text: string; timestamp?: Date | string }[] = (selectedConvo.fullTranscript && selectedConvo.fullTranscript.length > 0)
                                 ? selectedConvo.fullTranscript
                                 : [
-                                    { speaker: 'User', text: 'Hi, what is your name?', timestamp: selectedConvo.timestamp },
-                                    { speaker: selectedConvo.participants.find(p => p.toLowerCase() !== 'user') || 'Visitor', text: `I am ${selectedConvo.participants.find(p => p.toLowerCase() !== 'user') || 'Visitor'}.`, timestamp: selectedConvo.timestamp }
+                                    { speaker: 'You', text: 'Hi, what is your name?', timestamp: selectedConvo.timestamp },
+                                    { speaker: selectedConvo.participants.find(p => !['user', 'you', 'patient'].includes(p.toLowerCase())) || 'Visitor', text: `I am ${selectedConvo.participants.find(p => !['user', 'you', 'patient'].includes(p.toLowerCase())) || 'Visitor'}.`, timestamp: selectedConvo.timestamp }
                                 ];
 
                             return entries.map((entry, idx) => {
-                                const isUser = entry.speaker.toLowerCase() === 'you' || entry.speaker.toLowerCase() === 'user';
+                                const isUser = isUserSpeaker(entry.speaker, entry.text, selectedConvo.participants);
                                 const timeStr = entry.timestamp ? formatTimeAgo(new Date(entry.timestamp)) : formatTimeAgo(new Date(selectedConvo.timestamp));
+                                const visitorParticipant = selectedConvo.participants.find(p => !['user', 'you', 'patient', 'sunita', 'sunita sharma', 'owner'].includes(p.toLowerCase())) || 'Visitor';
+                                const displaySpeaker = isUser ? 'You (User)' : (entry.speaker && !['user', 'you', 'visitor'].includes(entry.speaker.toLowerCase()) ? entry.speaker : visitorParticipant);
 
                                 return (
                                     <div
@@ -419,7 +475,8 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                             flexDirection: 'column',
                                             alignSelf: isUser ? 'flex-end' : 'flex-start',
                                             alignItems: isUser ? 'flex-end' : 'flex-start',
-                                            maxWidth: '75%'
+                                            maxWidth: '75%',
+                                            width: 'fit-content'
                                         }}
                                     >
                                         <div
@@ -427,14 +484,14 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                                 padding: '12px 18px',
                                                 borderRadius: isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                                                 background: isUser
-                                                    ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.35) 0%, rgba(236, 72, 153, 0.35) 100%)'
-                                                    : 'rgba(255, 255, 255, 0.08)',
+                                                    ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.45) 0%, rgba(236, 72, 153, 0.45) 100%)'
+                                                    : 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.2) 100%)',
                                                 border: isUser
-                                                    ? '1px solid rgba(236, 72, 153, 0.45)'
-                                                    : '1px solid rgba(255, 255, 255, 0.12)',
+                                                    ? '1px solid rgba(236, 72, 153, 0.5)'
+                                                    : '1px solid rgba(52, 211, 153, 0.4)',
                                                 boxShadow: isUser
-                                                    ? '0 4px 15px rgba(236, 72, 153, 0.2)'
-                                                    : '0 4px 15px rgba(0, 0, 0, 0.2)',
+                                                    ? '0 4px 15px rgba(236, 72, 153, 0.25)'
+                                                    : '0 4px 15px rgba(0, 0, 0, 0.25)',
                                                 color: 'white',
                                                 fontSize: '14px',
                                                 lineHeight: 1.5,
@@ -445,7 +502,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                                 fontSize: '11px', fontWeight: 'bold', marginBottom: '4px',
                                                 color: isUser ? '#f472b6' : '#6ee7b7'
                                             }}>
-                                                {entry.speaker}
+                                                {displaySpeaker}
                                             </div>
                                             <p style={{ margin: 0, fontWeight: 500 }}>{entry.text}</p>
                                         </div>

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Users, Trash2, UserPlus, Fingerprint, HelpCircle } from 'lucide-react';
-import { addDate, appendDateExtraInfo, generateId } from './memoryDatabase';
+import { addDate, appendDateExtraInfo, addConversation, generateId } from './memoryDatabase';
 import { SpeakerDetector } from './speakerDetector';
 import { getVoicePrintEngine } from './voicePrint';
 import { extractOccasions, parseDateFromText, type Occasion } from './occasionExtractor';
@@ -10,6 +10,42 @@ interface ConversationEntry {
     speaker: string;
     text: string;
     timestamp: Date;
+}
+
+// Helper to accurately classify speaker as User vs Visitor
+export function isUserSpeaker(speaker?: string, text?: string, patientName?: string, visitorName?: string): boolean {
+    const s = (speaker || '').toLowerCase().trim();
+    const t = (text || '').toLowerCase().trim();
+    const p = (patientName || '').toLowerCase().trim();
+    const v = (visitorName || '').toLowerCase().trim();
+
+    // 1. Explicit user/self identities
+    if (['you', 'user', 'patient', 'me', 'self', 'owner', 'host', 'sunita', 'sunita sharma'].includes(s) || (p && s === p)) {
+        return true;
+    }
+
+    // 2. Explicit visitor matches
+    if (v && (s === v || s.includes(v))) {
+        return false;
+    }
+
+    if (['visitor', 'guest', 'doctor', 'nurse', 'caregiver', 'family'].includes(s)) {
+        return false;
+    }
+
+    // 3. Conversational linguistics based on message content
+    // User / host typical questions and polite acknowledgments:
+    if (/^(?:hi|hello|hey|good\s+morning|good\s+afternoon|good\s+evening)[,\s]*(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|how\s+can\s+i\s+help|sure\s+i(?:'ll|\s+will)\s+be\s+there|sure[,\s!]|thank\s+you|welcome)/i.test(t) ||
+        /^(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|how\s+are\s+you|how\s+can\s+i\s+help|sure\s+i(?:'ll|\s+will)\s+be\s+there|sure[,\s!]|thank\s+you|welcome)/i.test(t)) {
+        return true;
+    }
+
+    // Visitor typical responses / introductions / statements:
+    if (/^(?:my\s+name\s+is|i\s+am\s+|i'm\s+|i\s+came\s+to|i\s+am\s+here\s+for|i'm\s+here\s+for|we\s+will\s+be\s+having|tomorrow\s+i\s+have|i\s+have\s+my|actually\s+i)/i.test(t)) {
+        return false;
+    }
+
+    return s.includes('you') || s.includes('user');
 }
 
 // Simple token-Jaccard similarity for repeated-question detection.
@@ -288,11 +324,32 @@ TRANSCRIPT:
             onPersonRecognized?.({ name: identifiedPerson.name, relation: identifiedPerson.relation, source: 'face' });
         }
 
+        // Check for direct introduction in transcript
+        const introMatch = transcript.match(/(?:my name is|i am|i'm|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+        if (introMatch && !visitorInfo) {
+            const detectedName = introMatch[1].trim();
+            if (!['user', 'you', 'patient', 'here', 'going', 'coming', 'having'].includes(detectedName.toLowerCase())) {
+                setVisitorInfo({ name: detectedName, relation: 'visitor' });
+            }
+        }
+
         let speakerName: string;
-        if (decision.isOwner) speakerName = 'You';
-        else if (decision.isKnownVoice) speakerName = decision.resolvedName;
-        else if (currentSpeakerRef.current === 'Visitor') speakerName = visitorInfo?.name && visitorInfo.name !== 'the visitor' ? visitorInfo.name : 'Visitor';
-        else speakerName = 'You';
+        if (decision.isOwner) {
+            speakerName = 'You';
+        } else if (decision.isKnownVoice) {
+            speakerName = decision.resolvedName;
+        } else {
+            const t = transcript.trim();
+            if (/^(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|how\s+can\s+i\s+help|sure\s+i(?:'ll|\s+will)\s+be\s+there|sure[,\s!]|thank\s+you|welcome)/i.test(t)) {
+                speakerName = 'You';
+            } else if (/^(?:my\s+name\s+is|i\s+am\s+|i'm\s+|i\s+came\s+to|i\s+am\s+here\s+for|i'm\s+here\s+for|we\s+will\s+be\s+having|tomorrow\s+i\s+have|i\s+have\s+my)/i.test(t)) {
+                speakerName = visitorInfo?.name && visitorInfo.name !== 'the visitor' ? visitorInfo.name : 'Visitor';
+            } else if (currentSpeakerRef.current === 'Visitor') {
+                speakerName = visitorInfo?.name && visitorInfo.name !== 'the visitor' ? visitorInfo.name : 'Visitor';
+            } else {
+                speakerName = 'You';
+            }
+        }
 
         const newEntry: ConversationEntry = { speaker: speakerName, text: transcript, timestamp: new Date() };
 
@@ -384,11 +441,23 @@ TRANSCRIPT:
             engineRef.current.stop();
             setIsListening(false);
 
-            if (conversationsRef.current.length > 0 && !lastSummary) {
+            if (conversationsRef.current.length > 0) {
                 const text = conversationsRef.current.map(c => `${c.speaker}: "${c.text}"`).join(' | ');
                 const fallback = `Conversation recorded: ${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`;
-                onConversationUpdate(fallback, visitorInfo || undefined);
+                onConversationUpdate(lastSummary || fallback, visitorInfo || undefined);
                 if (primaryModel) analyzeRef.current(conversationsRef.current);
+
+                const visitorName = visitorInfo?.name && visitorInfo.name.toLowerCase() !== 'user'
+                    ? visitorInfo.name
+                    : (conversationsRef.current.find(c => c.speaker && !['user', 'you', 'patient', 'sunita'].includes(c.speaker.toLowerCase()))?.speaker || 'Visitor');
+
+                addConversation({
+                    id: generateId(),
+                    timestamp: new Date(),
+                    participants: [visitorName],
+                    summary: lastSummary || fallback,
+                    fullTranscript: [...conversationsRef.current]
+                } as any).catch(err => console.error('Failed to auto-save conversation:', err));
             }
         } else {
             setConversations([]);
@@ -591,7 +660,8 @@ TRANSCRIPT:
             {conversations.length > 0 && (
                 <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                     {conversations.slice(-8).map((entry, idx) => {
-                        const isUser = entry.speaker === 'You' || entry.speaker === patientName || entry.speaker.toLowerCase() === 'user';
+                        const isUser = isUserSpeaker(entry.speaker, entry.text, patientName, visitorInfo?.name);
+                        const displaySpeaker = isUser ? 'You' : (entry.speaker && !['user', 'you'].includes(entry.speaker.toLowerCase()) ? entry.speaker : (visitorInfo?.name || 'Visitor'));
                         return (
                             <motion.div
                                 key={idx}
@@ -609,7 +679,7 @@ TRANSCRIPT:
                                 <div className={`flex items-center gap-1.5 mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
                                     <Users size={11} className={isUser ? 'text-purple-300' : 'text-emerald-300'} />
                                     <span className="font-bold text-[11px]" style={{ color: isUser ? '#c4b5fd' : '#6ee7b7' }}>
-                                        {entry.speaker}
+                                        {displaySpeaker}
                                     </span>
                                     <span className="text-[10px] text-dim ml-1">
                                         {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

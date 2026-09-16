@@ -334,20 +334,26 @@
                         <div style="font-size: 12px; color: #9ca3af; margin-bottom: 8px;">${formatDate(convo.timestamp)}</div>
                         <div style="font-size: 14px; color: #d1d5db;">${convo.summary}</div>
                         <div class="conversation-content" id="convo-${idx}" style="display: flex; flex-direction: column; gap: 8px;">
-                            ${convo.fullTranscript.map(entry => {
-                                const isUser = entry.speaker.toLowerCase() === 'user' || entry.speaker.toLowerCase() === 'you';
+                            ${(convo.fullTranscript || []).map(entry => {
+                                const s = (entry.speaker || '').toLowerCase().trim();
+                                const t = (entry.text || '').toLowerCase().trim();
+                                const isUser = ['you', 'user', 'patient', 'me', 'self', 'owner', 'host', 'sunita'].includes(s) ||
+                                    (/^(?:hi|hello|hey|good\s+morning|good\s+afternoon)[,\s]*(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|who\s+are\s+you|sure\s+i)/i.test(t)) ||
+                                    (/^(?:what\s+(?:is\s+your\s+name|brings\s+you\s+here)|sure[,\s!]|sure\s+i'll\s+be\s+there)/i.test(t));
+                                const displaySpeaker = isUser ? 'You (User)' : (entry.speaker || 'Visitor');
                                 return `
                                 <div style="
                                     max-width: 80%;
                                     align-self: ${isUser ? 'flex-end' : 'flex-start'};
                                     text-align: left;
-                                    padding: 8px 12px;
-                                    border-radius: ${isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px'};
-                                    background: ${isUser ? 'rgba(168, 85, 247, 0.25)' : 'rgba(52, 211, 153, 0.15)'};
-                                    border: 1px solid ${isUser ? 'rgba(168, 85, 247, 0.4)' : 'rgba(52, 211, 153, 0.3)'};
+                                    padding: 10px 14px;
+                                    border-radius: ${isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px'};
+                                    background: ${isUser ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.2) 100%)'};
+                                    border: 1px solid ${isUser ? 'rgba(236, 72, 153, 0.5)' : 'rgba(52, 211, 153, 0.4)'};
+                                    box-shadow: ${isUser ? '0 4px 15px rgba(236, 72, 153, 0.2)' : '0 4px 15px rgba(0, 0, 0, 0.2)'};
                                 ">
-                                    <div style="font-size: 11px; font-weight: bold; color: ${isUser ? '#f472b6' : '#6ee7b7'}; margin-bottom: 2px;">
-                                        ${entry.speaker}
+                                    <div style="font-size: 11px; font-weight: bold; color: ${isUser ? '#f472b6' : '#6ee7b7'}; margin-bottom: 3px;">
+                                        ${displaySpeaker}
                                     </div>
                                     <div style="color: #ffffff; font-size: 13px;">${entry.text}</div>
                                 </div>
