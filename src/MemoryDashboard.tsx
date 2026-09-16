@@ -475,7 +475,7 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                 const isUser = isUserSpeaker(entry.speaker, entry.text, selectedConvo.participants);
                                 const timeStr = entry.timestamp ? formatTimeAgo(new Date(entry.timestamp)) : formatTimeAgo(new Date(selectedConvo.timestamp));
                                 const visitorParticipant = selectedConvo.participants.find(p => !['user', 'you', 'patient', 'sunita', 'sunita sharma', 'owner'].includes(p.toLowerCase())) || 'Visitor';
-                                const displaySpeaker = isUser ? 'You (User)' : (entry.speaker && !['user', 'you', 'visitor'].includes(entry.speaker.toLowerCase()) ? entry.speaker : visitorParticipant);
+                                const displaySpeaker = isUser ? 'You' : (entry.speaker && !['user', 'you', 'visitor'].includes(entry.speaker.toLowerCase()) ? entry.speaker : visitorParticipant);
 
                                 return (
                                     <div
@@ -483,42 +483,64 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                                         style={{
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            alignSelf: isUser ? 'flex-end' : 'flex-start',
                                             alignItems: isUser ? 'flex-end' : 'flex-start',
-                                            maxWidth: '75%',
-                                            width: 'fit-content'
+                                            width: '100%'
                                         }}
                                     >
                                         <div
                                             style={{
-                                                padding: '12px 18px',
+                                                maxWidth: '75%',
+                                                minWidth: '140px',
+                                                padding: '10px 16px 8px 16px',
                                                 borderRadius: isUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                                                 background: isUser
-                                                    ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.45) 0%, rgba(236, 72, 153, 0.45) 100%)'
-                                                    : 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                                                    ? 'linear-gradient(135deg, #005c4b 0%, #064e3b 100%)'
+                                                    : '#202c33',
                                                 border: isUser
-                                                    ? '1px solid rgba(236, 72, 153, 0.5)'
-                                                    : '1px solid rgba(52, 211, 153, 0.4)',
+                                                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                                                    : '1px solid rgba(255, 255, 255, 0.08)',
                                                 boxShadow: isUser
-                                                    ? '0 4px 15px rgba(236, 72, 153, 0.25)'
-                                                    : '0 4px 15px rgba(0, 0, 0, 0.25)',
+                                                    ? '0 4px 14px rgba(5, 150, 105, 0.25)'
+                                                    : '0 4px 14px rgba(0, 0, 0, 0.3)',
                                                 color: 'white',
                                                 fontSize: '14px',
-                                                lineHeight: 1.5,
-                                                textAlign: 'left'
+                                                position: 'relative'
                                             }}
                                         >
                                             <div style={{
-                                                fontSize: '11px', fontWeight: 'bold', marginBottom: '4px',
-                                                color: isUser ? '#f472b6' : '#6ee7b7'
+                                                fontSize: '11px',
+                                                fontWeight: 'bold',
+                                                color: isUser ? '#6ee7b7' : '#53bdeb',
+                                                marginBottom: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
                                             }}>
-                                                {displaySpeaker}
+                                                {!isUser && <span>~</span>}
+                                                <span>{displaySpeaker}</span>
                                             </div>
-                                            <p style={{ margin: 0, fontWeight: 500 }}>{entry.text}</p>
+
+                                            <p style={{ margin: 0, fontWeight: 400, lineHeight: 1.5, color: '#e9edef', wordBreak: 'break-word' }}>
+                                                {entry.text}
+                                            </p>
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'flex-end',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                marginTop: '4px'
+                                            }}>
+                                                <span style={{ fontSize: '10px', color: '#8696a0' }}>
+                                                    {timeStr}
+                                                </span>
+                                                {isUser && (
+                                                    <span style={{ fontSize: '11px', color: '#53bdeb', fontWeight: 'bold', lineHeight: 1 }}>
+                                                        ✓✓
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', padding: '0 4px' }}>
-                                            {timeStr}
-                                        </span>
                                     </div>
                                 );
                             });
