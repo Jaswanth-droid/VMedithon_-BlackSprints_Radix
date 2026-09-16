@@ -317,13 +317,41 @@ function App() {
         };
 
 
+        const handleDistressResolved = () => {
+            console.log('[App] 🟢 Caregiver resolved emergency distress signal.');
+            cancelEmergencyDistress();
+        };
+
+        const handleRequestCameraStream = () => {
+            console.log('[App] 📹 Caregiver requested live webcam stream.');
+            if (webcamRef.current) {
+                const frame = webcamRef.current.getScreenshot();
+                if (frame) emitPatientCameraFrame(frame);
+            }
+        };
+
         socket.on('caregiver_voice_assist', handleVoiceAssist);
+        socket.on('distress_resolved', handleDistressResolved);
+        socket.on('request_camera_stream', handleRequestCameraStream);
+
+        // Periodically emit webcam frames every 2.5s so caregiver portal always has fresh camera frames
+        const frameInterval = setInterval(() => {
+            if (webcamRef.current) {
+                const frame = webcamRef.current.getScreenshot();
+                if (frame) {
+                    emitPatientCameraFrame(frame);
+                }
+            }
+        }, 2500);
 
         return () => {
             unsub();
             socket.off('caregiver_voice_assist', handleVoiceAssist);
+            socket.off('distress_resolved', handleDistressResolved);
+            socket.off('request_camera_stream', handleRequestCameraStream);
+            clearInterval(frameInterval);
         };
-    }, []);
+    }, [cancelEmergencyDistress]);
 
     // Emit face_detected to hub whenever a person is identified
     useEffect(() => {
@@ -595,15 +623,9 @@ function App() {
                                 <span className="bg-red-500/40 px-2 py-0.5 rounded text-[10px] text-white">Live Camera Streaming</span>
                             </div>
                             <div className="text-sm font-semibold text-white mt-1">
-                                "Caregiver Ananya is accessing your AI camera now to assist you. Past event logs transmitted. Stay right where you are."
+                                "Caregiver Ananya is accessing your AI camera now to assist you. Past event logs transmitted. Stay right where you are. (Signal can be resolved by Caregiver)"
                             </div>
                         </div>
-                        <button 
-                            onClick={cancelEmergencyDistress} 
-                            className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-white/30 cursor-pointer"
-                        >
-                            I'm Safe Now ✓
-                        </button>
                     </div>
                 )}
 
