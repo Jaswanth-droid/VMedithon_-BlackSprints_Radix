@@ -69,6 +69,42 @@ export function emitTaskReminder(payload: { task: string; time: string }) {
     getHub().emit('task_reminder', payload);
 }
 
+export interface PatientAssistPayload {
+    patientName?: string;
+    scenario?: string;
+    trigger?: 'button' | 'voice';
+    transcript?: string;
+    location?: string;
+    missingItems?: string[];
+    timestamp?: string;
+}
+
+export function emitPatientAssistRequest(payload: PatientAssistPayload) {
+    getHub().emit('patient_assist_request', {
+        patientName: payload.patientName || 'Mrs. Sunita Sharma',
+        scenario: payload.scenario || 'Outside Walk Disorientation — Forgot destination',
+        trigger: payload.trigger || 'button',
+        transcript: payload.transcript || 'Patient tapped Outside Walk Assist button',
+        location: payload.location || '14th Cross Rd (72m North-East, Near Park)',
+        missingItems: payload.missingItems || ['Home Keys', 'Walking Stick'],
+        timestamp: payload.timestamp || new Date().toLocaleTimeString(),
+    });
+
+    // Also trigger via HTTP POST to hub servers
+    try {
+        fetch('http://localhost:5174/api/patient/assist-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        }).catch(() => {});
+        fetch('http://localhost:5000/api/patient/assist-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        }).catch(() => {});
+    } catch (e) {}
+}
+
 // ── Typed listener helpers ────────────────────────────────────────────────────
 
 export interface CognitiveAlert {

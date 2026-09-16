@@ -5,6 +5,7 @@ import { addDate, appendDateExtraInfo, addConversation, generateId } from './mem
 import { SpeakerDetector } from './speakerDetector';
 import { getVoicePrintEngine } from './voicePrint';
 import { extractOccasions, parseDateFromText, type Occasion } from './occasionExtractor';
+import { emitPatientAssistRequest } from './socketClient';
 
 interface ConversationEntry {
     speaker: string;
@@ -359,6 +360,29 @@ TRANSCRIPT:
         setConversations(updated);
 
         checkRepeatedQuestion(transcript);
+
+        // Detect outside walk disorientation question / assist voice request
+        const isDisorientedWalk = /\b(?:where\s+(?:do|should|can)\s+i\s+go|where\s+am\s+i|forgot\s+(?:where|how)\s+to\s+go|lost\s+(?:my\s+way|outside)|help\s+me\s+find\s+my\s+way|call\s+(?:caregiver|ananya)|assist\s+me)\b/i.test(transcript);
+        if (isDisorientedWalk) {
+            console.log('[ConversationRecorder] 🚨 Patient voice disorientation query detected:', transcript);
+            emitPatientAssistRequest({
+                patientName: patientName || 'Mrs. Sunita Sharma',
+                scenario: 'Outside Walk Disorientation — Patient asked for directions',
+                trigger: 'voice',
+                transcript: transcript.trim(),
+                location: '14th Cross Rd (72m North-East, Near Park)',
+                missingItems: ['Home Keys', 'Walking Stick'],
+                timestamp: new Date().toLocaleTimeString()
+            });
+
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance("Mrs. Sunita, please pause and stay right where you are. I have informed your caregiver Ananya, she is guiding you now.");
+                u.rate = 0.92;
+                u.pitch = 1.05;
+                window.speechSynthesis.speak(u);
+            }
+        }
 
         // Real-time precise occasion extraction.
         const occasions = extractOccasions(transcript, speakerName);
