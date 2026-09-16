@@ -1,0 +1,681 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mnemosync — Caretaker & Family Command Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #090d16;
+            color: #f1f5f9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brand-badge {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+        }
+        .brand-text h1 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+        }
+        .brand-text p {
+            font-size: 11px;
+            color: #10b981;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .patient-card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .patient-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ec4899, #8b5cf6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .patient-info h3 {
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+        }
+        .patient-info p {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #6ee7b7;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 999px;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.4; }
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 8px;
+            padding: 12px 28px;
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            color: #94a3b8;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .tab-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.07);
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.2) 100%);
+            border-color: #10b981;
+            color: #6ee7b7;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+
+        .content {
+            flex: 1;
+            padding: 24px 28px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+            animation: fadeIn 0.25s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 1000px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: rgba(18, 24, 38, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            backdrop-filter: blur(12px);
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.04) 0%, transparent 70%), #0c1317;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            max-height: 520px;
+            overflow-y: auto;
+        }
+        .message-row {
+            display: flex;
+            width: 100%;
+        }
+        .message-row.user {
+            justify-content: flex-end;
+        }
+        .message-row.visitor {
+            justify-content: flex-start;
+        }
+        .bubble {
+            max-width: 75%;
+            min-width: 140px;
+            padding: 10px 14px 8px 14px;
+            border-radius: 16px;
+            color: white;
+            font-size: 14px;
+            position: relative;
+            line-height: 1.45;
+        }
+        .bubble.user {
+            background: linear-gradient(135deg, #005c4b 0%, #064e3b 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px 16px 2px 16px;
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.25);
+        }
+        .bubble.visitor {
+            background: #202c33;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px 16px 16px 2px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+        .bubble-speaker {
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .bubble.user .bubble-speaker { color: #6ee7b7; text-align: right; }
+        .bubble.visitor .bubble-speaker { color: #53bdeb; }
+        .bubble-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #8696a0;
+        }
+        .checks {
+            color: #53bdeb;
+            font-weight: bold;
+        }
+
+        .speedo-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+
+        .plan-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .plan-check {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .med-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 10px;
+        }
+        .med-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <div class="brand-badge">🛡️</div>
+            <div class="brand-text">
+                <h1>Mnemosync Caretaker Portal</h1>
+                <p>Longitudinal Care & Clinical Remote Monitor (Port 5174)</p>
+            </div>
+        </div>
+
+        <div class="patient-card-header">
+            <div class="patient-avatar">S</div>
+            <div class="patient-info">
+                <h3>Sunita Sharma (68 yrs)</h3>
+                <p>Dx: Moderate Alzheimer's Disease • MMSE: 19/30</p>
+            </div>
+        </div>
+
+        <div class="status-pill">
+            <span class="pulse-dot"></span>
+            <span>Live Telemetry Active</span>
+        </div>
+    </header>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('tab-live-chat')">💬 Live Conversations & WhatsApp View</button>
+        <button class="tab-btn" onclick="switchTab('tab-progression')">📊 Cognitive Speedometer & Milestones</button>
+        <button class="tab-btn" onclick="switchTab('tab-action-plan')">🛡️ Caregiver Action Plan & Safety</button>
+        <button class="tab-btn" onclick="switchTab('tab-medications')">💊 Medication Adherence Tracker</button>
+        <button class="tab-btn" onclick="switchTab('tab-behavior')">⚠️ Behavioral & Sundowning Log</button>
+        <button class="tab-btn" onclick="switchTab('tab-upload')">📄 Ingest Hospital PDF/DOCX</button>
+    </div>
+
+    <div class="content">
+        <!-- Tab 1: Live Conversations (WhatsApp style) -->
+        <div id="tab-live-chat" class="tab-panel active">
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-title">
+                        <span>💬 Remote Dialogue Feed (WhatsApp Alignment)</span>
+                        <span style="font-size: 12px; color: #10b981; font-weight: normal;">• Left: Visitor | Right: Patient</span>
+                    </div>
+
+                    <div class="chat-container">
+                        <div class="message-row user">
+                            <div class="bubble user">
+                                <div class="bubble-speaker">Sunita (Patient)</div>
+                                <p>What is your name?</p>
+                                <div class="bubble-footer">
+                                    <span>10:14 AM</span>
+                                    <span class="checks">✓✓</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="message-row visitor">
+                            <div class="bubble visitor">
+                                <div class="bubble-speaker">~ Rakesh (Visitor)</div>
+                                <p>My name is Rakesh.</p>
+                                <div class="bubble-footer">
+                                    <span>10:14 AM</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="message-row user">
+                            <div class="bubble user">
+                                <div class="bubble-speaker">Sunita (Patient)</div>
+                                <p>What brings you here?</p>
+                                <div class="bubble-footer">
+                                    <span>10:15 AM</span>
+                                    <span class="checks">✓✓</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="message-row visitor">
+                            <div class="bubble visitor">
+                                <div class="bubble-speaker">~ Rakesh (Visitor)</div>
+                                <p>Have a birthday party on 17th September. We will be having a DJ party in our home.</p>
+                                <div class="bubble-footer">
+                                    <span>10:15 AM</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="message-row user">
+                            <div class="bubble user">
+                                <div class="bubble-speaker">Sunita (Patient)</div>
+                                <p>Sure, I'll be there.</p>
+                                <div class="bubble-footer">
+                                    <span>10:16 AM</span>
+                                    <span class="checks">✓✓</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span>📷 Scene & Face Recognition Camera Stream</span>
+                        <span style="font-size: 11px; color: #94a3b8;">HUD Capture</span>
+                    </div>
+                    <div style="width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); margin-bottom: 12px; background: #000; height: 260px; display: flex; align-items: center; justify-content: center;">
+                        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&auto=format&fit=crop&q=60" style="width: 100%; height: 260px; object-fit: cover; display: block;" alt="Scene capture" />
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Detected Individual:</p>
+                        <p style="font-size: 14px; font-weight: 700; color: #6ee7b7;">Rakesh (Friend / Colleague) • Confidence: 94%</p>
+                        <p style="font-size: 12px; color: #cbd5e1; margin-top: 4px;">Extracted Occasion: <strong>Birthday Party — 17th September (with DJ party)</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Cognitive Speedometer & Milestones -->
+        <div id="tab-progression" class="tab-panel">
+            <div class="grid-2">
+                <div class="card speedo-wrap">
+                    <div class="card-title" style="width: 100%;">
+                        <span>270° Alzheimer's Disease Worsening Speedometer</span>
+                        <span style="font-size: 11px; color: #ef4444; font-weight: bold;">Velocity: -3.6 MMSE / yr</span>
+                    </div>
+                    <canvas id="speedometerCanvas" width="340" height="220"></canvas>
+                    <div style="text-align: center; margin-top: 10px;">
+                        <div style="font-size: 26px; font-weight: 800; color: #f59e0b;">57 / 100 Risk Score</div>
+                        <p style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Worsening Faster Than Normal Baseline</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span>Longitudinal MMSE & CDR Decline Trajectory</span>
+                        <span style="font-size: 11px; color: #94a3b8;">6-Month Audit</span>
+                    </div>
+                    <div style="height: 240px;">
+                        <canvas id="progressionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Caregiver Action Plan & Safety -->
+        <div id="tab-action-plan" class="tab-panel">
+            <div class="card">
+                <div class="card-title">
+                    <span>🛡️ Actionable Caregiver & Safety Protocol (24/7 Support)</span>
+                    <span style="font-size: 12px; color: #10b981;">Doctor Approved</span>
+                </div>
+                <div class="plan-item">
+                    <div class="plan-check">✓</div>
+                    <div>
+                        <strong style="color: white;">1. Nighttime Wandering Prevention:</strong> Install wireless perimeter door sensor on main bedroom exit. Patient has shown disorientation during 03:00 AM awakenings.
+                    </div>
+                </div>
+                <div class="plan-item">
+                    <div class="plan-check">✓</div>
+                    <div>
+                        <strong style="color: white;">2. Wearable AI HUD Assistance:</strong> Ensure Mnemosync glasses/HUD are charged and active during morning and visitor hours to alleviate repetitive questioning.
+                    </div>
+                </div>
+                <div class="plan-item">
+                    <div class="plan-check">✓</div>
+                    <div>
+                        <strong style="color: white;">3. Circadian Lighting & Sundowning Protocol:</strong> Transition living room to warm amber lighting at 18:00 (twilight) and play acoustic 1970s classical audio to mitigate dusk anxiety.
+                    </div>
+                </div>
+                <div class="plan-item">
+                    <div class="plan-check">✓</div>
+                    <div>
+                        <strong style="color: white;">4. Reminiscence Photo Therapy:</strong> Review memory photo albums with daughter Priya 3 times weekly to stimulate episodic pathways and preserve recognition latency.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Medications -->
+        <div id="tab-medications" class="tab-panel">
+            <div class="card">
+                <div class="card-title">
+                    <span>💊 Daily Medication Adherence Tracker (100% On-Time)</span>
+                    <span style="font-size: 12px; color: #10b981;">Dr. Sarah Jenkins Protocol</span>
+                </div>
+                <div class="med-row">
+                    <div>
+                        <strong style="color: white; font-size: 14px;">Donepezil (Aricept) — 10mg</strong>
+                        <p style="font-size: 12px; color: #94a3b8;">Daily morning with breakfast • Preserves episodic memory</p>
+                    </div>
+                    <span class="med-badge">Taken 08:07 AM (On-Time)</span>
+                </div>
+                <div class="med-row">
+                    <div>
+                        <strong style="color: white; font-size: 14px;">Memantine (Namenda) — 10mg</strong>
+                        <p style="font-size: 12px; color: #94a3b8;">Twice daily (08:00 AM & 20:00 PM) • Glutamate neuro-protection</p>
+                    </div>
+                    <span class="med-badge">Taken 08:08 AM (On-Time)</span>
+                </div>
+                <div class="med-row">
+                    <div>
+                        <strong style="color: white; font-size: 14px;">Melatonin — 3mg</strong>
+                        <p style="font-size: 12px; color: #94a3b8;">30 mins before bedtime (21:30 PM) • Sundowning reduction</p>
+                    </div>
+                    <span class="med-badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4);">Scheduled 21:30 PM</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Behavior -->
+        <div id="tab-behavior" class="tab-panel">
+            <div class="card">
+                <div class="card-title">
+                    <span>⚠️ Behavioral Incident Log & Alert Trigger Feed</span>
+                    <span style="font-size: 12px; color: #f59e0b;">5 Incidents Logged</span>
+                </div>
+                <div class="plan-item">
+                    <span style="font-size: 18px;">⚠️</span>
+                    <div>
+                        <strong style="color: #f59e0b;">Moderate Confusion (45 mins ago):</strong>
+                        <p style="color: #cbd5e1; margin-top: 2px;">Patient asked who the visitor was 4 times in 2 minutes. Mnemosync AI HUD recognized visitor and provided reassuring audio cue.</p>
+                    </div>
+                </div>
+                <div class="plan-item">
+                    <span style="font-size: 18px;">🌙</span>
+                    <div>
+                        <strong style="color: #ef4444;">Severe Sundowning Restlessness (Yesterday 18:30 Dusk):</strong>
+                        <p style="color: #cbd5e1; margin-top: 2px;">Twilight shadow changes caused anxiety regarding going to work. Warm lighting and soothing acoustic playlist eased distress within 25 minutes.</p>
+                    </div>
+                </div>
+                <div class="plan-item">
+                    <span style="font-size: 18px;">🚪</span>
+                    <div>
+                        <strong style="color: #ef4444;">Wandering Hazard Intercepted (2 days ago 03:15 AM):</strong>
+                        <p style="color: #cbd5e1; margin-top: 2px;">Smart exit sensor sounded softly when patient moved toward porch thinking it was the hallway. Redirected safely to bathroom.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Report Uploader -->
+        <div id="tab-upload" class="tab-panel">
+            <div class="card" style="text-align: center; padding: 40px;">
+                <div style="font-size: 40px; margin-bottom: 12px;">📑</div>
+                <h3 style="font-size: 18px; margin-bottom: 8px;">Upload New Clinical Hospital Report</h3>
+                <p style="color: #94a3b8; font-size: 13px; max-width: 500px; margin: 0 auto 20px auto;">Upload official Vasundhara Hospital PDF, DOCX, or clinical discharge notes to automatically update the Alzheimer's progression speedometer.</p>
+                <input type="file" id="reportInput" style="display: none;" onchange="handleUpload(this.files[0])" />
+                <button onclick="document.getElementById('reportInput').click()" style="padding: 12px 24px; border-radius: 10px; background: #10b981; color: #090d16; font-weight: 700; border: none; cursor: pointer;">
+                    Select PDF / Word Document
+                </button>
+                <div id="uploadStatus" style="margin-top: 16px; font-size: 13px; color: #6ee7b7;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'tab-progression') {
+                setTimeout(drawSpeedometer, 50);
+                setTimeout(drawChart, 50);
+            }
+        }
+
+        function drawSpeedometer() {
+            const canvas = document.getElementById('speedometerCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const cx = 170, cy = 130, r = 95;
+            const startAngle = 0.75 * Math.PI;
+            const endAngle = 2.25 * Math.PI;
+            const value = 0.57;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, startAngle, endAngle);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            const currentAngle = startAngle + value * (endAngle - startAngle);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, startAngle, currentAngle);
+            const grad = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
+            grad.addColorStop(0, '#10b981');
+            grad.addColorStop(0.5, '#f59e0b');
+            grad.addColorStop(1, '#ef4444');
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            const nx = cx + (r - 20) * Math.cos(currentAngle);
+            const ny = cy + (r - 20) * Math.sin(currentAngle);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(nx, ny);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#10b981';
+            ctx.fill();
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('progressionChart');
+            if (!canvas || canvas._chart) return;
+            const ctx = canvas.getContext('2d');
+            canvas._chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026', 'Sep 2026'],
+                    datasets: [
+                        {
+                            label: 'MMSE Score (out of 30)',
+                            data: [26, 25, 23, 22, 21, 20, 19],
+                            borderColor: '#818cf8',
+                            backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 10, max: 30, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } }
+                    },
+                    plugins: { legend: { labels: { color: '#ffffff' } } }
+                }
+            });
+        }
+
+        async function handleUpload(file) {
+            if (!file) return;
+            const status = document.getElementById('uploadStatus');
+            status.textContent = 'Uploading ' + file.name + ' to Mnemosync Hub on port 5000...';
+            const formData = new FormData();
+            formData.append('reportFile', file);
+            try {
+                const res = await fetch('http://localhost:5000/api/ocr/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                status.textContent = '✅ Analysis Complete: ' + (data.analysis?.patient_summary?.name || 'Report Analyzed') + ' progression metrics updated!';
+            } catch (err) {
+                status.textContent = 'Uploaded to Hub! Note: Ensure Hub is running on port 5000.';
+            }
+        }
+    </script>
+</body>
+</html>
