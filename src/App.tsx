@@ -172,6 +172,7 @@ function App() {
 
     // Cognitive alert from CBAE module
     const [cognitiveAlert, setCognitiveAlert] = useState<CognitiveAlert | null>(null);
+    const [caregiverVoiceAlert, setCaregiverVoiceAlert] = useState<{ message: string; sender: string } | null>(null);
 
     // Cinematic Intro States
     const [introComplete, setIntroComplete] = useState(false);
@@ -180,19 +181,35 @@ function App() {
         historyRef.current = history;
     }, [history]);
 
-    // Connect to Mnemosync Hub on mount and subscribe to cognitive alerts
+    // Connect to Mnemosync Hub on mount and subscribe to cognitive alerts & caregiver voice assists
     useEffect(() => {
-        connectHub();
+        const socket = connectHub();
         const unsub = onCognitiveAlert((alert) => {
             console.log('[App] cognitive_alert received:', alert);
             setCognitiveAlert(alert);
-            // Auto-dismiss low-severity after 30 s
             if (alert.severity === 'low') {
                 setTimeout(() => setCognitiveAlert(null), 30000);
             }
         });
+
+        const handleVoiceAssist = (data: { message: string; sender?: string }) => {
+            console.log('[App] Caregiver voice assistance received:', data);
+            setCaregiverVoiceAlert({ message: data.message, sender: data.sender || 'Caregiver Ananya' });
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(data.message);
+                u.rate = 0.92;
+                u.pitch = 1.05;
+                window.speechSynthesis.speak(u);
+            }
+            setTimeout(() => setCaregiverVoiceAlert(null), 16000);
+        };
+
+        socket.on('caregiver_voice_assist', handleVoiceAssist);
+
         return () => {
             unsub();
+            socket.off('caregiver_voice_assist', handleVoiceAssist);
         };
     }, []);
 
@@ -417,6 +434,23 @@ function App() {
             >
                 {/* Hidden canvas */}
                 <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+                {/* Floating Caregiver Voice Assistance Banner */}
+                {caregiverVoiceAlert && (
+                    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-emerald-950 via-teal-900 to-emerald-950 border-2 border-emerald-400 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-bounce max-w-2xl backdrop-blur-xl">
+                        <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-2xl flex-shrink-0 shadow-lg shadow-emerald-500/50">
+                            🔊
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-2">
+                                <span>Voice Guidance from {caregiverVoiceAlert.sender}</span>
+                                <span className="bg-emerald-500/30 px-2 py-0.5 rounded text-[10px] text-emerald-200">Wearable Speaker Active</span>
+                            </div>
+                            <div className="text-base font-bold text-white mt-1">"{caregiverVoiceAlert.message}"</div>
+                        </div>
+                        <button onClick={() => setCaregiverVoiceAlert(null)} className="text-gray-400 hover:text-white text-lg px-2" title="Dismiss">✕</button>
+                    </div>
+                )}
 
                 {/* Top Pastel Navigation Bar */}
                 <header className="app-header w-full mb-3 px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-3">

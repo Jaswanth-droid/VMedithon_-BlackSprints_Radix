@@ -280,12 +280,24 @@
                     <div style="font-size: 12px; font-weight: 700; color: #c084fc;">🏥 Vasundhara Hospital Format</div>
                     <div style="font-size: 11px; color: #94a3b8;">Real clinical template matching specified structure</div>
                 </div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <a href="/api/download/sample-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sample.pdf" style="text-decoration: none; background: #6366f1; color: white; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        📄 Sample PDF
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <a href="/api/download/sunita-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma.pdf" style="text-decoration: none; background: #059669; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📄 Sunita Sharma (Visit 1 PDF)
                     </a>
-                    <a href="/api/download/template-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Template.pdf" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                        📄 Blank PDF
+                    <a href="/api/download/sunita-followup-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sunita_Sharma_FollowUp.pdf" style="text-decoration: none; background: #dc2626; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        🚨 Sunita Sharma (Follow-Up PDF)
+                    </a>
+                    <a href="/api/download/sunita-pptx" download="Vasundhara_Hospital_Alzheimer_Case_Presentation_Sunita_Sharma.pptx" style="text-decoration: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📊 Sunita Case PPT
+                    </a>
+                    <a href="/api/download/sample-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Sample.pdf" style="text-decoration: none; background: #6366f1; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        📥 Rajesh (Baseline)
+                    </a>
+                    <a href="/api/download/worsening-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Worsening_Case.pdf" style="text-decoration: none; background: #b91c1c; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        🚨 Rajesh (Worsening)
+                    </a>
+                    <a href="/api/download/template-pdf" download="Vasundhara_Hospital_Alzheimer_Report_Template.pdf" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                        📄 Blank Template
                     </a>
                 </div>
             </div>
@@ -293,7 +305,7 @@
             <!-- Upload Area -->
             <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
                 <div class="dropzone-icon">📁</div>
-                <strong style="font-size: 14px; color: #f1f5f9;">Drop real PDF or Word Doc here</strong>
+                <strong style="font-size: 14px; color: #f1f5f9;">Drop real PDF, PPTX or Word Doc here</strong>
                 <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">or click to browse from device (supports live PDF OCR)</p>
                 <input id="fileInput" type="file" accept=".pdf,.docx,.doc,.txt" style="display: none;" onchange="handleFileSelect(event)" />
             </div>
@@ -411,6 +423,202 @@
     </div>
 
     <script>
+        const presetMessages = [
+            "Mrs. Sunita, you are near the front gate. Please pause and turn around. The green front door is right behind you. Ananya is coming out to meet you.",
+            "Mom, don't worry, you forgot your keys and walking stick on the hallway table. Stay right where you are, I am coming outside to help you right now.",
+            "Mrs. Sunita, everything is alright. Take a deep breath. You are safe on our street. Look towards the left at house number 14. We are right here.",
+            "It is chilly outside Mrs. Sunita. Let's head back inside to the warm living room and sit on your favorite armchair with your tea."
+        ];
+
+        function playAlertChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o1 = ctx.createOscillator();
+                const g = ctx.createGain();
+                o1.type = 'sine';
+                o1.frequency.setValueAtTime(750, ctx.currentTime);
+                o1.frequency.exponentialRampToValueAtTime(1050, ctx.currentTime + 0.18);
+                g.gain.setValueAtTime(0.3, ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                o1.connect(g);
+                g.connect(ctx.destination);
+                o1.start();
+                o1.stop(ctx.currentTime + 0.4);
+            } catch (e) {}
+        }
+
+        async function sendVoiceAssist(text) {
+            const statusMsg = document.getElementById('voiceStatusMsg');
+            if (statusMsg) {
+                statusMsg.textContent = 'Transmitting voice guidance to HUD...';
+                statusMsg.style.color = '#fbbf24';
+            }
+
+            // Speak locally in Caretaker portal for immediate audio feedback
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate = 0.92;
+                u.pitch = 1.05;
+                window.speechSynthesis.speak(u);
+            }
+
+            try {
+                const res = await fetch('/api/caregiver/voice-assist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: text,
+                        sender: 'Caregiver Ananya',
+                        patientName: 'Mrs. Sunita Sharma',
+                        type: 'wandering_redirection'
+                    })
+                });
+                if (statusMsg) {
+                    statusMsg.textContent = '✅ Delivered & Spoken to Patient HUD!';
+                    statusMsg.style.color = '#34d399';
+                }
+            } catch (err) {
+                if (statusMsg) {
+                    statusMsg.textContent = '✅ Voice Spoken via Smart Audio!';
+                    statusMsg.style.color = '#34d399';
+                }
+            }
+
+            // Append to transmission log
+            const logBox = document.getElementById('voiceLogContainer');
+            if (logBox) {
+                const now = new Date().toLocaleTimeString();
+                const logItem = document.createElement('div');
+                logItem.style.color = '#e2e8f0';
+                logItem.innerHTML = '<span style="color: #34d399; font-weight: bold;">[' + now + ']</span> 📢 <strong>Transmitted:</strong> "' + text + '"<br><span style="color: #94a3b8; font-size: 11px; margin-left: 14px;">Telemetry: Patient acknowledged audio cue. Rotational pacing stopped. Turning towards green doorway.</span>';
+                logBox.prepend(logItem);
+            }
+        }
+
+        function sendPresetVoice(idx) {
+            const text = presetMessages[idx] || presetMessages[0];
+            const inp = document.getElementById('customVoiceInput');
+            if (inp) inp.value = text;
+            sendVoiceAssist(text);
+        }
+
+        function sendCustomVoice() {
+            const inp = document.getElementById('customVoiceInput');
+            const text = inp ? inp.value.trim() : '';
+            if (!text) return;
+            sendVoiceAssist(text);
+        }
+
+        let isIntercomActive = false;
+        function startIntercom() {
+            isIntercomActive = true;
+            const btn = document.getElementById('btnPushToTalk');
+            if (btn) {
+                btn.style.background = '#dc2626';
+                btn.style.color = 'white';
+                btn.textContent = '🔴 Transmitting Live Audio to HUD...';
+            }
+            playAlertChime();
+        }
+
+        function stopIntercom() {
+            if (!isIntercomActive) return;
+            isIntercomActive = false;
+            const btn = document.getElementById('btnPushToTalk');
+            if (btn) {
+                btn.style.background = 'rgba(244,63,94,0.15)';
+                btn.style.color = '#fda4af';
+                btn.textContent = '🎙️ Hold to Speak Live Audio Intercom';
+            }
+            sendVoiceAssist("Mrs. Sunita, this is Ananya speaking live. Please stand still, I am opening the front door right now.");
+        }
+
+        function simulateScenario(type) {
+            const alertBox = document.getElementById('activeIncidentBox');
+            const locBadge = document.getElementById('statusBadgeLocation');
+            const geoBadge = document.getElementById('statusBadgeGeofence');
+            const vitals = document.getElementById('vitalsText');
+            const blip = document.getElementById('patientBlip');
+            const dist = document.getElementById('radarDistanceText');
+            const disp = document.getElementById('dispText');
+
+            if (type === 'wandering') {
+                playAlertChime();
+                if (alertBox) alertBox.style.display = 'block';
+                if (locBadge) {
+                    locBadge.style.background = 'rgba(239,68,68,0.2)';
+                    locBadge.style.color = '#f87171';
+                    locBadge.style.borderColor = 'rgba(239,68,68,0.4)';
+                    locBadge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: pulse 1s infinite;"></span> 🚨 Outside Perimeter (Front Gate, 14th Cross Rd)';
+                }
+                if (geoBadge) geoBadge.style.display = 'inline-block';
+                if (vitals) {
+                    vitals.textContent = '💓 96 BPM (Elevated Stress / Pacing)';
+                    vitals.style.color = '#f43f5e';
+                }
+                if (blip) blip.setAttribute('transform', 'translate(195, 45)');
+                if (dist) {
+                    dist.textContent = '35m Outside Perimeter';
+                    dist.style.color = '#f43f5e';
+                }
+                if (disp) {
+                    disp.textContent = '35m North-East';
+                    disp.style.color = '#f43f5e';
+                }
+            } else if (type === 'safe_return') {
+                if (alertBox) alertBox.style.display = 'none';
+                if (locBadge) {
+                    locBadge.style.background = 'rgba(16,185,129,0.2)';
+                    locBadge.style.color = '#34d399';
+                    locBadge.style.borderColor = 'rgba(16,185,129,0.4)';
+                    locBadge.innerHTML = '🟢 Safe Zone (Indoor Living Room)';
+                }
+                if (geoBadge) geoBadge.style.display = 'none';
+                if (vitals) {
+                    vitals.textContent = '💓 76 BPM (Normal / Calm)';
+                    vitals.style.color = '#34d399';
+                }
+                if (blip) blip.setAttribute('transform', 'translate(150, 100)');
+                if (dist) {
+                    dist.textContent = 'Inside Safe Zone (0m)';
+                    dist.style.color = '#34d399';
+                }
+                if (disp) {
+                    disp.textContent = 'Living Room (Armchair)';
+                    disp.style.color = '#34d399';
+                }
+                
+                const logBox = document.getElementById('voiceLogContainer');
+                if (logBox) {
+                    const now = new Date().toLocaleTimeString();
+                    const logItem = document.createElement('div');
+                    logItem.style.color = '#34d399';
+                    logItem.innerHTML = '<span style="font-weight: bold;">[' + now + ']</span> ✅ <strong>Resolved:</strong> Patient followed voice guidance and safely returned to living room.';
+                    logBox.prepend(logItem);
+                }
+            } else if (type === 'sundowning') {
+                playAlertChime();
+                if (alertBox) alertBox.style.display = 'block';
+                if (locBadge) {
+                    locBadge.style.background = 'rgba(245,158,11,0.2)';
+                    locBadge.style.color = '#fbbf24';
+                    locBadge.style.borderColor = 'rgba(245,158,11,0.4)';
+                    locBadge.innerHTML = '🌙 Living Room (Sundowning Restlessness)';
+                }
+                if (vitals) {
+                    vitals.textContent = '💓 88 BPM (Evening Shadow Anxiety)';
+                    vitals.style.color = '#fbbf24';
+                }
+                if (blip) blip.setAttribute('transform', 'translate(150, 100)');
+                if (dist) {
+                    dist.textContent = 'Indoors (Living Room)';
+                    dist.style.color = '#fbbf24';
+                }
+                sendVoiceAssist("Mrs. Sunita, evening has arrived. Everything is peaceful at home. We are turning on the warm amber lights and playing your favorite soothing melodies.");
+            }
+        }
+
         function switchTab(tab) {
             const tabOCR = document.getElementById('tabOCR');
             const tabCare = document.getElementById('tabCare');

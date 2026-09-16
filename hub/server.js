@@ -245,6 +245,20 @@ app.post('/api/ocr/analyze', async (req, res) => {
     }
 });
 
+// Caregiver Remote Voice Assistance Endpoint
+app.post('/api/caregiver/voice-assist', (req, res) => {
+    const { message, sender = 'Caregiver Ananya', patientName = 'Mrs. Sunita Sharma', type = 'wandering_redirection' } = req.body;
+    console.log(`[Hub:5000 Voice Assist] Broadcasting to ${patientName}: "${message}"`);
+    io.emit('caregiver_voice_assist', {
+        message,
+        sender,
+        patientName,
+        type,
+        timestamp: new Date().toLocaleTimeString()
+    });
+    res.json({ success: true, delivered: true, message, timestamp: new Date().toLocaleTimeString() });
+});
+
 // ── Interactive Web Dashboard UI ─────────────────────────────────────────────
 app.get('/', (_req, res) => {
     res.send(`
