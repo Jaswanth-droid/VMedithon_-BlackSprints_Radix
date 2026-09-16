@@ -411,22 +411,32 @@ export default function MemoryDashboard({ isOpen, onClose }: MemoryDashboardProp
                         >
                             <ArrowLeft size={18} />
                         </button>
-                        <div style={{
-                            width: '48px', height: '48px', borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: 'white', fontWeight: 'bold', fontSize: '18px', flexShrink: 0
-                        }}>
-                            U
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                                {selectedConvo.participants.join(' & ') || 'User'}
-                            </h2>
-                            <p style={{ fontSize: '13px', color: '#9ca3af', margin: '4px 0 0 0' }}>
-                                {selectedConvo.summary || 'You had a conversation with visitor.'}
-                            </p>
-                        </div>
+                        {(() => {
+                            const visitorName = selectedConvo.participants.find(p => !['user', 'you', 'patient', 'sunita', 'sunita sharma', 'owner'].includes(p.toLowerCase())) ||
+                                (selectedConvo.fullTranscript?.find(t => !isUserSpeaker(t.speaker, t.text, selectedConvo.participants))?.speaker) ||
+                                'Visitor';
+                            const initial = visitorName && visitorName !== 'Visitor' ? visitorName[0].toUpperCase() : 'V';
+                            return (
+                                <>
+                                    <div style={{
+                                        width: '48px', height: '48px', borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', fontWeight: 'bold', fontSize: '18px', flexShrink: 0
+                                    }}>
+                                        {initial}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                                            Conversation with {visitorName}
+                                        </h2>
+                                        <p style={{ fontSize: '13px', color: '#9ca3af', margin: '4px 0 0 0' }}>
+                                            {selectedConvo.summary || `Conversation recorded with ${visitorName}.`}
+                                        </p>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
                     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)' }} />
